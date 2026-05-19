@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/fcm/push_helper.dart';
 import 'asistencia_provider.dart';
 
 // --- Modelo reunión -----------------------------------------------------------
@@ -159,8 +160,14 @@ class CrearReunionNotifier extends StateNotifier<AsyncValue<void>> {
                 'tipo': 'asistencia',
               })
           .toList();
+      // Inserta notificaciones + envía push a cada participante
       if (notifs.isNotEmpty) {
-        await client.from('notificaciones').insert(notifs);
+        await pushNotifMultiple(
+          userIds: notifs.map((n) => n['user_id'] as String).toList(),
+          titulo: notifs.first['titulo'] as String,
+          mensaje: notifs.first['mensaje'] as String,
+          tipo: 'asistencia',
+        );
       }
 
       _ref.invalidate(reunionDeHoyProvider);

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/fcm/push_helper.dart';
 import '../models/brief.dart';
 import 'disenios_provider.dart';
 import 'historial_provider.dart';
@@ -139,14 +140,12 @@ class CrearBriefNotifier extends StateNotifier<AsyncValue<void>> {
                 .select('id')
                 .eq('rol', 'disenadora')
                 .eq('activo', true);
-            for (final d in diseniadoras as List) {
-              await client.from('notificaciones').insert({
-                'user_id': d['id'],
-                'titulo': 'Nuevo brief: $titulo',
-                'mensaje': 'Nuevo brief: $titulo · Entrega: $fl',
-                'tipo': 'disenio',
-              });
-            }
+            await pushNotifMultiple(
+              userIds: (diseniadoras as List).map((d) => d['id'] as String).toList(),
+              titulo: 'Nuevo brief: $titulo',
+              mensaje: 'Nuevo brief: $titulo · Entrega: $fl',
+              tipo: 'disenio',
+            );
           } else if (rol == 'disenadora') {
             // Diseñadora crea su propio brief → notifica CEOs/Managers
             final ceos = await client
@@ -154,14 +153,12 @@ class CrearBriefNotifier extends StateNotifier<AsyncValue<void>> {
                 .select('id')
                 .inFilter('rol', ['ceo', 'manager'])
                 .eq('activo', true);
-            for (final c in ceos as List) {
-              await client.from('notificaciones').insert({
-                'user_id': c['id'],
-                'titulo': 'Nuevo brief de $nombreCreador',
-                'mensaje': '$nombreCreador creó un brief: $titulo · Entrega: $fl',
-                'tipo': 'disenio',
-              });
-            }
+            await pushNotifMultiple(
+              userIds: (ceos as List).map((c) => c['id'] as String).toList(),
+              titulo: 'Nuevo brief de $nombreCreador',
+              mensaje: '$nombreCreador creó un brief: $titulo · Entrega: $fl',
+              tipo: 'disenio',
+            );
           }
         } catch (_) {}
       }

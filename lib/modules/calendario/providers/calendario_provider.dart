@@ -20,6 +20,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/fcm/push_helper.dart';
+
 // ─── Modelo ───────────────────────────────────────────────────────────────────
 
 class EventoCalendario {
@@ -298,14 +300,12 @@ class CrearEventoNotifier extends StateNotifier<AsyncValue<void>> {
       final horaStr = hora != null
           ? ' a las ${hora.hour.toString().padLeft(2, '0')}:${hora.minute.toString().padLeft(2, '0')}'
           : '';
-      for (final u in usuarios as List) {
-        await client.from('notificaciones').insert({
-          'user_id': u['id'],
-          'titulo': 'Nueva reunión: $titulo',
-          'mensaje': 'Nueva reunión: $titulo el $fechaStr$horaStr',
-          'tipo': 'asistencia',
-        });
-      }
+      await pushNotifMultiple(
+        userIds: (usuarios as List).map((u) => u['id'] as String).toList(),
+        titulo: 'Nueva reunión: $titulo',
+        mensaje: 'Nueva reunión: $titulo el $fechaStr$horaStr',
+        tipo: 'asistencia',
+      );
     } catch (_) {}
   }
 }

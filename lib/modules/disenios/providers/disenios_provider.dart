@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/fcm/push_helper.dart';
 import '../models/disenio.dart';
 import 'historial_provider.dart';
 
@@ -64,16 +65,13 @@ final disenioDetalleProvider =
 
 Future<void> notificarDisenio(
     String userId, String titulo, String mensaje) async {
-  try {
-    await Supabase.instance.client.from('notificaciones').insert({
-      'user_id': userId,
-      'titulo': titulo,
-      'mensaje': mensaje,
-      'tipo': 'disenio',
-    });
-  } catch (e) {
-    debugPrint('[notif] ERROR: $e');
-  }
+  // pushNotif inserta en notificaciones Y envía push via Edge Function
+  await pushNotif(
+    userId: userId,
+    titulo: titulo,
+    mensaje: mensaje,
+    tipo: 'disenio',
+  );
 }
 
 Future<List<String>> idsAllCeos() async {
