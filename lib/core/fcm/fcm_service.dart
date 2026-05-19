@@ -1,7 +1,8 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../config/app_config.dart';
 
 // ─── Background handler (debe ser función top-level, no un método de clase) ───
 // Se invoca cuando llega un push con la app cerrada o en segundo plano.
@@ -67,13 +68,9 @@ class FcmService {
 
       String? token;
       if (kIsWeb) {
-        // VAPID key: Firebase Console → Cloud Messaging → Certificados push web
-        final vapidKey = dotenv.env['FIREBASE_VAPID_KEY'];
-        if (vapidKey == null || vapidKey.isEmpty) {
-          debugPrint('[FCM] FIREBASE_VAPID_KEY no definida en .env — skip web push');
-          return;
-        }
-        token = await _messaging.getToken(vapidKey: vapidKey);
+        token = await _messaging.getToken(
+          vapidKey: AppConfig.firebaseVapidKey,
+        );
       } else {
         token = await _messaging.getToken();
       }

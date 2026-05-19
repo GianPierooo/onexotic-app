@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
+import 'core/config/app_config.dart';
 import 'core/fcm/fcm_service.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_colors.dart';
@@ -20,11 +21,16 @@ Future<void> main() async {
   await initializeDateFormatting('es', null);
   await initializeDateFormatting('es_PE', null);
 
-  await dotenv.load(fileName: '.env');
+  // .env solo existe en entornos locales — en Vercel se ignora el error.
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {}
 
+  // Las credenciales están en AppConfig (valores públicos hardcodeados).
+  // dotenv puede sobreescribirlas en dev local si existe el .env.
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    url: dotenv.env['SUPABASE_URL'] ?? AppConfig.supabaseUrl,
+    anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? AppConfig.supabaseAnonKey,
   );
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
