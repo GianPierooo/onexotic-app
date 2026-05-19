@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "982678191452",
+    "project_id": "onexotic-49e29",
+    "storage_bucket": "onexotic-49e29.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:982678191452:android:d393ddc5f6a597d9b5d599",
+        "android_client_info": {
+          "package_name": "com.onexotic.onexotic_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8l_U0vJ3rR8XpONfeGVKHvmVJWDmzQYI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

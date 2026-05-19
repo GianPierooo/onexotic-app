@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/fcm/fcm_service.dart';
+
 class LoginState {
   final bool isLoading;
   final String? error;
@@ -25,6 +27,8 @@ class LoginNotifier extends StateNotifier<LoginState> {
         email: email.trim(),
         password: password,
       );
+      // Guarda el FCM token del dispositivo para recibir push notifications
+      await FcmService.saveToken();
       state = state.copyWith(isLoading: false);
       return true;
     } on AuthException catch (e) {

@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,9 +6,11 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
+import 'core/fcm/fcm_service.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'firebase_options.dart';
 import 'modules/perfil/providers/perfil_provider.dart';
 
 Future<void> main() async {
@@ -23,6 +26,10 @@ Future<void> main() async {
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await FcmService.init();
+  FcmService.listenTokenRefresh();
 
   runApp(const ProviderScope(child: OnExoticApp()));
 }

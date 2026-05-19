@@ -23,6 +23,8 @@ dependencies:
   timeago: ^3.6.1
   intl: ^0.20.0
   flutter_dotenv: ^5.1.0
+  firebase_core: ^3.8.1
+  firebase_messaging: ^15.1.5
 
 dev_dependencies:
   flutter_test:
