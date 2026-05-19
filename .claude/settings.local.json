@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(supabase --help)",
+      "Bash(supabase db *)",
+      "Bash(supabase secrets *)",
+      "Bash(supabase functions *)",
+      "Bash(flutter analyze *)",
+      "Bash(flutter run *)",
+      "Bash(Start-Process \"flutter\" -ArgumentList \"run -d chrome\" -PassThru)",
+      "Bash(supabase projects *)",
+      "Bash(curl *)"
+    ]
+  }
+}

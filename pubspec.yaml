@@ -1,0 +1,51 @@
+name: onexotic_app
+description: App interna de gestión OnExotic
+
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+  supabase_flutter: ^2.5.0
+  go_router: ^14.0.0
+  flutter_animate: ^4.5.0
+  google_fonts: ^6.2.1
+  shadcn_ui: ^0.54.0
+  fl_chart: ^0.68.0
+  cached_network_image: ^3.3.1
+  image_picker: ^1.1.2
+  timeago: ^3.6.1
+  intl: ^0.20.0
+  flutter_dotenv: ^5.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.4.9
+  riverpod_generator: ^2.4.3
+  custom_lint: ^0.7.6
+  riverpod_lint: ^2.6.5
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo_onexotic_negro.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: "assets/images/logo_onexotic_negro.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
+    - assets/images/
+    - assets/fonts/
