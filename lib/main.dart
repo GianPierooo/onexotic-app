@@ -33,9 +33,19 @@ Future<void> main() async {
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? AppConfig.supabaseAnonKey,
   );
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await FcmService.init();
-  FcmService.listenTokenRefresh();
+  // Firebase init es opcional — la app funciona sin él.
+  // Si firebase_options.dart tiene valores REEMPLAZA_* o la config falta,
+  // se ignora silenciosamente (las notificaciones push no estarán disponibles).
+  try {
+    final opts = DefaultFirebaseOptions.currentPlatform;
+    if (!opts.apiKey.startsWith('REEMPLAZA')) {
+      await Firebase.initializeApp(options: opts);
+      await FcmService.init();
+      FcmService.listenTokenRefresh();
+    }
+  } catch (e) {
+    debugPrint('[Firebase] no inicializado: $e');
+  }
 
   runApp(const ProviderScope(child: OnExoticApp()));
 }

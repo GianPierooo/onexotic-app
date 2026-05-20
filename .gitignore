@@ -31,7 +31,9 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
+# build/ está excluido excepto build/web (necesario para deploy en Vercel)
 /build/
+!/build/web/
 /coverage/
 
 # Symbolication related
