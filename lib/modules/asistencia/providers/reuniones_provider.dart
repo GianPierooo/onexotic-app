@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -67,7 +67,7 @@ final reunionDeHoyProvider = FutureProvider<Reunion?>((ref) async {
     if ((data as List).isEmpty) return null;
     return Reunion.fromJson(data.first);
   } catch (e) {
-    debugPrint('[reunionDeHoy] ERROR: $e');
+    if (kDebugMode) print('[reunionDeHoy] ERROR: $e');
     return null;
   }
 });
@@ -176,7 +176,7 @@ class CrearReunionNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[crearReunion] ERROR: $e');
+      if (kDebugMode) print('[crearReunion] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -274,7 +274,7 @@ final asistenciaReunionProvider =
 
     return ReunionHoyData(miembros: miembros, yaMarque: yaMarque);
   } catch (e) {
-    debugPrint('[asistenciaReunion] ERROR: $e');
+    if (kDebugMode) print('[asistenciaReunion] ERROR: $e');
     rethrow;
   }
 });

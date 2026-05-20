@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,7 +50,7 @@ final usuariosActivosProvider = FutureProvider<List<UsuarioSimple>>((ref) async 
         .order('nombre');
     return (data as List).map((j) => UsuarioSimple.fromJson(j)).toList();
   } catch (e) {
-    debugPrint('[usuarios] ERROR: $e');
+    if (kDebugMode) print('[usuarios] ERROR: $e');
     return [];
   }
 });
@@ -135,10 +135,10 @@ final tareasProvider = FutureProvider<List<Tarea>>((ref) async {
       return (prioOrder[a.prioridad] ?? 3).compareTo(prioOrder[b.prioridad] ?? 3);
     });
 
-    debugPrint('[tareas] cargadas: ${tareas.length} (filtro: ${filtro.estado}/${filtro.area})');
+    if (kDebugMode) print('[tareas] cargadas: ${tareas.length} (filtro: ${filtro.estado}/${filtro.area})');
     return tareas;
   } catch (e, st) {
-    debugPrint('[tareas] ERROR: $e\n$st');
+    if (kDebugMode) print('[tareas] ERROR: $e\n$st');
     rethrow;
   }
 });
@@ -159,7 +159,7 @@ class ToggleTareaNotifier extends StateNotifier<AsyncValue<void>> {
       _ref.invalidate(tareasProvider);
       state = const AsyncValue.data(null);
     } catch (e) {
-      debugPrint('[toggle tarea] ERROR: $e');
+      if (kDebugMode) print('[toggle tarea] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
     }
   }
@@ -204,7 +204,7 @@ class CrearTareaNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[crear tarea] ERROR: $e');
+      if (kDebugMode) print('[crear tarea] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -231,7 +231,7 @@ Future<String?> uploadImagenTarea({
             fileOptions: FileOptions(contentType: 'image/$ext', upsert: true));
     return Supabase.instance.client.storage.from('tareas').getPublicUrl(path);
   } catch (e) {
-    debugPrint('[upload tarea imagen] ERROR: $e');
+    if (kDebugMode) print('[upload tarea imagen] ERROR: $e');
     return null;
   }
 }

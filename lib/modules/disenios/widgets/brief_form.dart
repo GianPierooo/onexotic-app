@@ -1,3 +1,4 @@
+﻿import 'package:flutter/foundation.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -306,7 +307,7 @@ class _BriefFormState extends ConsumerState<BriefForm> {
       setState(() => _ctrl.imagenes.add((bytes: bytes, ext: ext)));
       widget.onChanged();
     } catch (e) {
-      debugPrint('[pick imagen ref] ERROR: $e');
+      if (kDebugMode) print('[pick imagen ref] ERROR: $e');
     }
   }
 

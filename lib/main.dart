@@ -1,3 +1,4 @@
+﻿import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -44,7 +45,7 @@ Future<void> main() async {
       FcmService.listenTokenRefresh();
     }
   } catch (e) {
-    debugPrint('[Firebase] no inicializado: $e');
+    if (kDebugMode) print('[Firebase] no inicializado: $e');
   }
 
   runApp(const ProviderScope(child: OnExoticApp()));

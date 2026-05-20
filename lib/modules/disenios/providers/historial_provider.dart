@@ -1,4 +1,4 @@
-// SQL requerido en Supabase antes de usar este módulo:
+﻿// SQL requerido en Supabase antes de usar este módulo:
 //
 // CREATE TABLE IF NOT EXISTS disenio_historial (
 //   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -34,7 +34,7 @@ final historialDeDisenioProvider =
         .order('created_at', ascending: true);
     return (data as List).map((j) => DisenioHistorial.fromJson(j)).toList();
   } catch (e) {
-    debugPrint('[historial] ERROR: $e');
+    if (kDebugMode) print('[historial] ERROR: $e');
     return [];
   }
 });
@@ -55,7 +55,7 @@ Future<void> registrarHistorial({
       if (usuarioId != null) 'usuario_id': usuarioId,
     });
   } catch (e) {
-    debugPrint('[historial insert] ERROR: $e');
+    if (kDebugMode) print('[historial insert] ERROR: $e');
   }
 }
 

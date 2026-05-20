@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,7 +28,7 @@ final onlineUserIdsProvider = StreamProvider<Set<String>>((ref) {
         if (uid != null) ids.add(uid);
       }
     }
-    debugPrint('[presence] online: ${ids.length} usuarios · $ids');
+    if (kDebugMode) print('[presence] online: ${ids.length} usuarios · $ids');
     controller.add(ids);
   }
 
@@ -37,7 +37,7 @@ final onlineUserIdsProvider = StreamProvider<Set<String>>((ref) {
       .onPresenceJoin((_) => syncPresence())
       .onPresenceLeave((_) => syncPresence())
       .subscribe((status, [error]) async {
-    debugPrint('[presence] status: $status');
+    if (kDebugMode) print('[presence] status: $status');
     if (status == RealtimeSubscribeStatus.subscribed) {
       await channel.track({
         'user_id': userId,

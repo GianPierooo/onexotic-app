@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -23,7 +23,7 @@ final diseniosProvider = FutureProvider<List<Disenio>>((ref) async {
     final data = await query.order('created_at', ascending: false);
     return (data as List).map((j) => Disenio.fromJson(j)).toList();
   } catch (e, st) {
-    debugPrint('[disenios] ERROR: $e\n$st');
+    if (kDebugMode) print('[disenios] ERROR: $e\n$st');
     rethrow;
   }
 });
@@ -56,7 +56,7 @@ final disenioDetalleProvider =
         .single();
     return Disenio.fromJson(data);
   } catch (e) {
-    debugPrint('[disenioDetalle] ERROR: $e');
+    if (kDebugMode) print('[disenioDetalle] ERROR: $e');
     return null;
   }
 });
@@ -147,7 +147,7 @@ class AprobarDisenioNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[aprobar disenio] ERROR: $e');
+      if (kDebugMode) print('[aprobar disenio] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -198,7 +198,7 @@ class RechazarDisenioNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[rechazar disenio] ERROR: $e');
+      if (kDebugMode) print('[rechazar disenio] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -262,7 +262,7 @@ class CambiarEstadoNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[cambiarEstado] ERROR: $e');
+      if (kDebugMode) print('[cambiarEstado] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -319,7 +319,7 @@ class CambiarEstadoNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[forzar estado] ERROR: $e');
+      if (kDebugMode) print('[forzar estado] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -405,7 +405,7 @@ class CancelarDisenioNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[cancelar] ERROR: $e');
+      if (kDebugMode) print('[cancelar] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -464,7 +464,7 @@ class EliminarDisenioNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[eliminar disenio] ERROR: $e');
+      if (kDebugMode) print('[eliminar disenio] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }

@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -102,7 +102,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         isTyping: false,
       );
     } catch (e) {
-      debugPrint('[ai-chat] ERROR: $e');
+      if (kDebugMode) print('[ai-chat] ERROR: $e');
       state = state.copyWith(
         isTyping: false,
         error: 'No se pudo conectar con el asistente.',

@@ -1,3 +1,4 @@
+﻿import 'package:flutter/foundation.dart';
 import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -1575,7 +1576,7 @@ class _ImageViewerState extends State<_ImageViewer> {
     // En mobile se puede integrar url_launcher si se añade la dependencia.
     final url = widget.urls[_current];
     // ignore: avoid_print
-    debugPrint('[ImageViewer] download: $url');
+    if (kDebugMode) print('[ImageViewer] download: $url');
   }
 
   @override

@@ -1,3 +1,6 @@
+﻿import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -68,10 +71,11 @@ final perfilStatsProvider = FutureProvider<PerfilStats>((ref) async {
         .eq('completado', true);
     final tareasCompletadas = (tareasData as List).length;
 
-    // 3. Diseños aprobados (como diseñadora o CEO)
+    // 3. Diseños aprobados propios del usuario
     final disenosData = await client
         .from('disenios')
         .select('id')
+        .eq('disenadora_id', userId)
         .eq('estado', 'aprobado');
     final disenosAprobados = (disenosData as List).length;
 
@@ -104,7 +108,7 @@ final perfilStatsProvider = FutureProvider<PerfilStats>((ref) async {
       rachaActual: racha,
     );
   } catch (e) {
-    debugPrint('[perfilStats] ERROR: $e');
+    if (kDebugMode) print('[perfilStats] ERROR: $e');
     return const PerfilStats(
       asistenciaPct: 0,
       tareasCompletadas: 0,
@@ -131,7 +135,7 @@ class ActualizarTemaNotifier extends StateNotifier<AsyncValue<void>> {
       _ref.invalidate(currentUserProvider);
       state = const AsyncValue.data(null);
     } catch (e) {
-      debugPrint('[actualizar tema] ERROR: $e');
+      if (kDebugMode) print('[actualizar tema] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
     }
   }
@@ -140,6 +144,71 @@ class ActualizarTemaNotifier extends StateNotifier<AsyncValue<void>> {
 final actualizarTemaProvider =
     StateNotifierProvider<ActualizarTemaNotifier, AsyncValue<void>>(
   (ref) => ActualizarTemaNotifier(ref),
+);
+
+// ─── Actualizar perfil propio ─────────────────────────────────────────────────
+
+class ActualizarPerfilNotifier extends StateNotifier<AsyncValue<void>> {
+  final Ref _ref;
+  ActualizarPerfilNotifier(this._ref) : super(const AsyncValue.data(null));
+
+  Future<bool> actualizar({
+    required String nombre,
+    String? apellido,
+    String? telefono,
+    String? avatarUrl,
+  }) async {
+    state = const AsyncValue.loading();
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      state = AsyncValue.error('Sin sesión activa', StackTrace.current);
+      return false;
+    }
+    try {
+      final updates = <String, dynamic>{'nombre': nombre.trim()};
+      updates['apellido'] =
+          (apellido?.trim().isNotEmpty ?? false) ? apellido!.trim() : null;
+      updates['telefono'] =
+          (telefono?.trim().isNotEmpty ?? false) ? telefono!.trim() : null;
+      if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
+
+      await Supabase.instance.client
+          .from('users')
+          .update(updates)
+          .eq('id', userId);
+
+      _ref.invalidate(currentUserProvider);
+      state = const AsyncValue.data(null);
+      return true;
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+      return false;
+    }
+  }
+
+  Future<String?> subirAvatar(Uint8List bytes, String ext) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return null;
+    try {
+      final client = Supabase.instance.client;
+      final path = 'avatars/$userId/avatar.$ext';
+      await client.storage.from('avatars').uploadBinary(
+        path,
+        bytes,
+        fileOptions: const FileOptions(upsert: true),
+      );
+      // Añade timestamp para forzar cache-bust en la imagen
+      final base = client.storage.from('avatars').getPublicUrl(path);
+      return '$base?t=${DateTime.now().millisecondsSinceEpoch}';
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+final actualizarPerfilProvider =
+    StateNotifierProvider<ActualizarPerfilNotifier, AsyncValue<void>>(
+  (ref) => ActualizarPerfilNotifier(ref),
 );
 
 // ─── Cerrar sesión ────────────────────────────────────────────────────────────

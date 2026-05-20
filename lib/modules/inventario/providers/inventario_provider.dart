@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -44,7 +44,7 @@ final inventarioProvider = FutureProvider<List<Producto>>((ref) async {
 
     return lista;
   } catch (e, st) {
-    debugPrint('[inventario] ERROR: $e\n$st');
+    if (kDebugMode) print('[inventario] ERROR: $e\n$st');
     rethrow;
   }
 });
@@ -108,7 +108,7 @@ class EditarStockNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[editar stock] ERROR: $e');
+      if (kDebugMode) print('[editar stock] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -163,7 +163,7 @@ class GestionarProductoNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[gestionar producto] agregarMultiples ERROR: $e');
+      if (kDebugMode) print('[gestionar producto] agregarMultiples ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -233,7 +233,7 @@ class GestionarProductoNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[gestionar producto] editarMultiples ERROR: $e');
+      if (kDebugMode) print('[gestionar producto] editarMultiples ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -251,7 +251,7 @@ class GestionarProductoNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[gestionar producto] eliminar ERROR: $e');
+      if (kDebugMode) print('[gestionar producto] eliminar ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }

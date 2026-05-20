@@ -41,6 +41,7 @@ class DashboardScreen extends ConsumerWidget {
 
   Future<void> _refresh(WidgetRef ref) async {
     ref.invalidate(dashboardDataProvider);
+    ref.invalidate(dashboardDisenoraProvider);
     ref.invalidate(notificacionesRecientesProvider);
     ref.invalidate(currentUserProvider);
     await ref.read(dashboardDataProvider.future).catchError(
@@ -100,22 +101,34 @@ class DashboardScreen extends ConsumerWidget {
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
                 sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    const _SectionLabel('RESUMEN'),
-                    const SizedBox(height: 14),
-                    dataAsync.when(
-                      loading: () => const _MetricasLoading(),
-                      error: (e, _) => _ErrorBanner('$e'),
-                      data: (data) => _buildMetricasGrid(context, data, rol: rol),
-                    ),
-                    const SizedBox(height: 28),
-                    const ActividadRecienteList(),
-                    const SizedBox(height: 28),
-                    const _SectionLabel('ACCESO RAPIDO'),
-                    const SizedBox(height: 14),
-                    const AccesoRapidoIA(),
-                    const SizedBox(height: 8),
-                  ]),
+                  delegate: SliverChildListDelegate(
+                    rol == 'disenadora'
+                        ? [
+                            const _DisenoraContent(),
+                            const SizedBox(height: 28),
+                            const _SectionLabel('ACCESO RAPIDO'),
+                            const SizedBox(height: 14),
+                            const AccesoRapidoIA(),
+                            const SizedBox(height: 8),
+                          ]
+                        : [
+                            const _SectionLabel('RESUMEN'),
+                            const SizedBox(height: 14),
+                            dataAsync.when(
+                              loading: () => const _MetricasLoading(),
+                              error: (e, _) => _ErrorBanner('$e'),
+                              data: (data) =>
+                                  _buildMetricasGrid(context, data, rol: rol),
+                            ),
+                            const SizedBox(height: 28),
+                            const ActividadRecienteList(),
+                            const SizedBox(height: 28),
+                            const _SectionLabel('ACCESO RAPIDO'),
+                            const SizedBox(height: 14),
+                            const AccesoRapidoIA(),
+                            const SizedBox(height: 8),
+                          ],
+                  ),
                 ),
               ),
             ],
@@ -362,6 +375,454 @@ class _ErrorBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Vista exclusiva para diseñadora ─────────────────────────────────────────
+
+class _DisenoraContent extends ConsumerWidget {
+  const _DisenoraContent();
+
+  static Color _colorEstado(String e) => switch (e) {
+        'brief'    => AppColors.info,
+        'proceso'  => AppColors.warning,
+        'avance'   => const Color(0xFFF97316),
+        'revision' => AppColors.accent,
+        _          => AppColors.textSecondary,
+      };
+
+  static String _labelEstado(String e) => switch (e) {
+        'brief'    => 'Brief',
+        'proceso'  => 'En proceso',
+        'avance'   => 'Avance',
+        'revision' => 'Revisión',
+        _          => e,
+      };
+
+  static String _formatFechaCorta(DateTime d) {
+    const meses = [
+      'ene','feb','mar','abr','may','jun',
+      'jul','ago','sep','oct','nov','dic'
+    ];
+    return '${d.day} ${meses[d.month - 1]}';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dataAsync = ref.watch(dashboardDisenoraProvider);
+
+    return dataAsync.when(
+      loading: () => const _MetricasLoading(),
+      error: (e, _) => _ErrorBanner('$e'),
+      data: (data) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Stats row ──────────────────────────────────────────────────
+          const _SectionLabel('RESUMEN'),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: MetricCard(
+                  icon: Icons.brush_outlined,
+                  value: '${data.disenosCount}',
+                  label: 'En proceso',
+                  badge: 'diseños',
+                  valueColor: AppColors.accent,
+                  onTap: () => context.go('/disenios'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: MetricCard(
+                  icon: Icons.assignment_outlined,
+                  value: '${data.briefsCount}',
+                  label: 'Briefs nuevos',
+                  badge: 'pendiente',
+                  valueColor: AppColors.info,
+                  onTap: data.briefsCount > 0 ? () => context.go('/disenios') : null,
+                ),
+              ),
+            ],
+          ),
+
+          // ── Próxima entrega ────────────────────────────────────────────
+          if (data.proximaEntrega != null) ...[
+            const SizedBox(height: 28),
+            const _SectionLabel('PRÓXIMA ENTREGA'),
+            const SizedBox(height: 14),
+            _ProximaEntregaCard(disenio: data.proximaEntrega!),
+          ],
+
+          // ── Diseños activos ────────────────────────────────────────────
+          if (data.disenosActivos.isNotEmpty) ...[
+            const SizedBox(height: 28),
+            Row(
+              children: [
+                const Expanded(child: _SectionLabel('MIS DISEÑOS ACTIVOS')),
+                GestureDetector(
+                  onTap: () => context.go('/disenios'),
+                  child: Text(
+                    'Ver todos',
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ...data.disenosActivos.take(3).map(
+              (d) => _DisenioMiniCard(
+                titulo: d['titulo'] as String? ?? '',
+                dropNombre: (d['drops'] as Map?)?['nombre'] as String?,
+                estado: d['estado'] as String? ?? 'proceso',
+                fechaLimite: d['fecha_limite'] != null
+                    ? DateTime.tryParse(d['fecha_limite'] as String)
+                    : null,
+                version: d['version'] as int? ?? 1,
+                colorEstado: _colorEstado(d['estado'] as String? ?? 'proceso'),
+                labelEstado: _labelEstado(d['estado'] as String? ?? 'proceso'),
+                formatFecha: _formatFechaCorta,
+              ),
+            ),
+          ],
+
+          // ── Briefs pendientes ──────────────────────────────────────────
+          if (data.briefsPendientes.isNotEmpty) ...[
+            const SizedBox(height: 28),
+            const _SectionLabel('BRIEFS PENDIENTES'),
+            const SizedBox(height: 14),
+            ...data.briefsPendientes.take(3).map(
+              (d) => _DisenioMiniCard(
+                titulo: d['titulo'] as String? ?? '',
+                dropNombre: (d['drops'] as Map?)?['nombre'] as String?,
+                estado: 'brief',
+                fechaLimite: d['fecha_limite'] != null
+                    ? DateTime.tryParse(d['fecha_limite'] as String)
+                    : null,
+                version: d['version'] as int? ?? 1,
+                colorEstado: _colorEstado('brief'),
+                labelEstado: _labelEstado('brief'),
+                formatFecha: _formatFechaCorta,
+              ),
+            ),
+          ],
+
+          // ── Último feedback CEO ────────────────────────────────────────
+          if (data.ultimoFeedback != null) ...[
+            const SizedBox(height: 28),
+            const _SectionLabel('ÚLTIMO FEEDBACK'),
+            const SizedBox(height: 14),
+            _FeedbackCard(
+              titulo: data.ultimoFeedbackTitulo ?? 'Diseño',
+              feedback: data.ultimoFeedback!,
+            ),
+          ],
+
+          // ── Empty state ────────────────────────────────────────────────
+          if (data.disenosCount == 0 && data.briefsCount == 0)
+            _DisenadoraEmptyState(),
+        ],
+      ).animate().fadeIn(duration: 350.ms, delay: 100.ms),
+    );
+  }
+}
+
+class _ProximaEntregaCard extends StatelessWidget {
+  final Map<String, dynamic> disenio;
+  const _ProximaEntregaCard({required this.disenio});
+
+  @override
+  Widget build(BuildContext context) {
+    final titulo = disenio['titulo'] as String? ?? '';
+    final estado = disenio['estado'] as String? ?? 'proceso';
+    final fechaStr = disenio['fecha_limite'] as String?;
+    final fecha = fechaStr != null ? DateTime.tryParse(fechaStr) : null;
+    final hoy = DateTime.now();
+    int? diasRestantes;
+    if (fecha != null) {
+      diasRestantes = DateTime(fecha.year, fecha.month, fecha.day)
+          .difference(DateTime(hoy.year, hoy.month, hoy.day))
+          .inDays;
+    }
+    final urgente = diasRestantes != null && diasRestantes <= 3;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: urgente
+            ? AppColors.error.withValues(alpha: 0.08)
+            : AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: urgente
+              ? AppColors.error.withValues(alpha: 0.3)
+              : AppColors.border,
+          width: urgente ? 1 : 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: (urgente ? AppColors.error : AppColors.accent)
+                  .withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.calendar_today_rounded,
+              size: 20,
+              color: urgente ? AppColors.error : AppColors.accent,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _labelEstado(estado),
+                  style: GoogleFonts.inter(
+                      fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                diasRestantes == null
+                    ? 'Sin fecha'
+                    : diasRestantes <= 0
+                        ? '¡Hoy!'
+                        : '${diasRestantes}d',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: urgente ? AppColors.error : AppColors.textPrimary,
+                  height: 1,
+                ),
+              ),
+              if (fecha != null)
+                Text(
+                  '${fecha.day}/${fecha.month}/${fecha.year}',
+                  style: GoogleFonts.inter(
+                      fontSize: 11, color: AppColors.textTertiary),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _labelEstado(String e) => switch (e) {
+        'brief'    => 'Sin comenzar',
+        'proceso'  => 'En proceso',
+        'avance'   => 'Avance subido',
+        'revision' => 'En revisión',
+        _          => e,
+      };
+}
+
+class _DisenioMiniCard extends StatelessWidget {
+  final String titulo;
+  final String? dropNombre;
+  final String estado;
+  final DateTime? fechaLimite;
+  final int version;
+  final Color colorEstado;
+  final String labelEstado;
+  final String Function(DateTime) formatFecha;
+
+  const _DisenioMiniCard({
+    required this.titulo,
+    this.dropNombre,
+    required this.estado,
+    this.fechaLimite,
+    required this.version,
+    required this.colorEstado,
+    required this.labelEstado,
+    required this.formatFecha,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 40,
+            decoration: BoxDecoration(
+              color: colorEstado,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  dropNombre != null
+                      ? 'Drop $dropNombre · v$version'
+                      : 'v$version',
+                  style: GoogleFonts.inter(
+                      fontSize: 11, color: AppColors.textTertiary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: colorEstado.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  labelEstado,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: colorEstado,
+                  ),
+                ),
+              ),
+              if (fechaLimite != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  formatFecha(fechaLimite!),
+                  style: GoogleFonts.inter(
+                      fontSize: 11, color: AppColors.textTertiary),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeedbackCard extends StatelessWidget {
+  final String titulo;
+  final String feedback;
+  const _FeedbackCard({required this.titulo, required this.feedback});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.warning.withValues(alpha: 0.25),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.feedback_outlined,
+              size: 16, color: AppColors.warning),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.warning,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  feedback,
+                  style: GoogleFonts.inter(
+                      fontSize: 12, color: AppColors.textSecondary),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DisenadoraEmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.brush_outlined,
+                size: 40, color: AppColors.textTertiary),
+            const SizedBox(height: 12),
+            Text(
+              'Todo al día · Sin diseños activos',
+              style: GoogleFonts.inter(
+                  fontSize: 14, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Cuando tengas briefs o diseños en\nproceso aparecerán aquí',
+              style: GoogleFonts.inter(
+                  fontSize: 12, color: AppColors.textTertiary),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -57,7 +57,7 @@ final equipoProvider = FutureProvider<List<UsuarioConStats>>((ref) async {
       return UsuarioConStats(usuario: usuario, asistenciaMensual: pct);
     }).toList();
   } catch (e, st) {
-    debugPrint('[equipo] ERROR: $e\n$st');
+    if (kDebugMode) print('[equipo] ERROR: $e\n$st');
     rethrow;
   }
 });
@@ -78,7 +78,7 @@ final bonosProvider = FutureProvider<List<Bono>>((ref) async {
 
     return (data as List).map((j) => Bono.fromJson(j)).toList();
   } catch (e) {
-    debugPrint('[bonos] ERROR: $e');
+    if (kDebugMode) print('[bonos] ERROR: $e');
     return [];
   }
 });

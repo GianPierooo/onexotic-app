@@ -1,3 +1,4 @@
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,7 +22,7 @@ class NotificacionesScreen extends ConsumerWidget {
   String _mensajeError(Object e) {
     final msg = e.toString();
     // Muestra el mensaje completo para diagnóstico
-    debugPrint('[NotificacionesScreen] ERROR COMPLETO: $msg');
+    if (kDebugMode) print('[NotificacionesScreen] ERROR COMPLETO: $msg');
     if (msg.contains('JWT') || msg.contains('401') || msg.contains('auth')) {
       return 'Sesión expirada.\nCierra sesión y vuelve a entrar.\n\n$msg';
     }
@@ -238,8 +239,8 @@ class NotificacionesScreen extends ConsumerWidget {
                           ? widget
                           : Opacity(opacity: 0.7, child: widget);
                     } catch (e, st) {
-                      debugPrint('[notif list] error en item $i: $e');
-                      debugPrint('$st');
+                      if (kDebugMode) print('[notif list] error en item $i: $e');
+                      if (kDebugMode) print('$st');
                       return _BrokenItem(error: e.toString());
                     }
                   },

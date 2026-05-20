@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -93,11 +93,11 @@ final notificacionesAllProvider =
   final userId = client.auth.currentUser?.id;
 
   if (userId == null) {
-    debugPrint('[notificaciones] sin sesión activa ? retornando []');
+    if (kDebugMode) print('[notificaciones] sin sesión activa ? retornando []');
     return [];
   }
 
-  debugPrint('[notificaciones] consultando para userId=$userId');
+  if (kDebugMode) print('[notificaciones] consultando para userId=$userId');
 
   final List<dynamic> rows = await client
       .from('notificaciones')
@@ -105,7 +105,7 @@ final notificacionesAllProvider =
       .eq('user_id', userId)
       .order('created_at', ascending: false);
 
-  debugPrint('[notificaciones] recibidas ${rows.length} filas');
+  if (kDebugMode) print('[notificaciones] recibidas ${rows.length} filas');
 
   final result = <Notificacion>[];
   for (final j in rows) {
@@ -115,11 +115,11 @@ final notificacionesAllProvider =
           : Map<String, dynamic>.from(j as Map);
       result.add(Notificacion.fromJson(map));
     } catch (e, st) {
-      debugPrint('[notificaciones] parse error en fila: $e');
-      debugPrint('$st');
+      if (kDebugMode) print('[notificaciones] parse error en fila: $e');
+      if (kDebugMode) print('$st');
     }
   }
-  debugPrint('[notificaciones] parseadas ${result.length}/${rows.length}');
+  if (kDebugMode) print('[notificaciones] parseadas ${result.length}/${rows.length}');
   return result;
 });
 
@@ -144,14 +144,14 @@ final notificacionesStreamProvider =
             final map = Map<String, dynamic>.from(j);
             result.add(Notificacion.fromJson(map));
           } catch (e) {
-            debugPrint('[notif stream] parse error: $e');
+            if (kDebugMode) print('[notif stream] parse error: $e');
           }
         }
-        debugPrint('[notif stream] emit: ${result.length} items');
+        if (kDebugMode) print('[notif stream] emit: ${result.length} items');
         return result;
       })
       .handleError((Object e) {
-        debugPrint('[notif stream] error ignorado: $e');
+        if (kDebugMode) print('[notif stream] error ignorado: $e');
       });
 });
 
@@ -178,7 +178,7 @@ class MarcarLeidaNotifier extends StateNotifier<AsyncValue<void>> {
           .update({'leido': true}).eq('id', id);
       _ref.invalidate(notificacionesAllProvider);
     } catch (e) {
-      debugPrint('[marcar leida] ERROR: $e');
+      if (kDebugMode) print('[marcar leida] ERROR: $e');
     }
   }
 }
@@ -210,7 +210,7 @@ class MarcarTodasNotifier extends StateNotifier<AsyncValue<void>> {
       _ref.invalidate(notificacionesAllProvider);
       state = const AsyncValue.data(null);
     } catch (e) {
-      debugPrint('[marcar todas] ERROR: $e');
+      if (kDebugMode) print('[marcar todas] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
     }
   }
@@ -235,7 +235,7 @@ class EliminarNotifNotifier extends StateNotifier<AsyncValue<void>> {
           .eq('id', id);
       _ref.invalidate(notificacionesAllProvider);
     } catch (e) {
-      debugPrint('[eliminar notif] ERROR: $e');
+      if (kDebugMode) print('[eliminar notif] ERROR: $e');
     }
   }
 }

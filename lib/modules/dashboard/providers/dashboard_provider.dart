@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -12,7 +12,7 @@ final currentUserProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
 
   final userId = Supabase.instance.client.auth.currentUser?.id;
   if (userId == null) {
-    debugPrint('[currentUser] sin sesión activa');
+    if (kDebugMode) print('[currentUser] sin sesión activa');
     return null;
   }
   try {
@@ -21,10 +21,10 @@ final currentUserProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
         .select()
         .eq('id', userId)
         .maybeSingle();
-    debugPrint('[currentUser] cargado: ${data?['nombre']} / ${data?['rol']}');
+    if (kDebugMode) print('[currentUser] cargado: ${data?['nombre']} / ${data?['rol']}');
     return data;
   } catch (e) {
-    debugPrint('[currentUser] ERROR: $e');
+    if (kDebugMode) print('[currentUser] ERROR: $e');
     rethrow;
   }
 });
@@ -59,12 +59,12 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
 
   try {
     // 1. Stock crítico
-    debugPrint('[dashboard] consultando productos...');
+    if (kDebugMode) print('[dashboard] consultando productos...');
     final productos = await client
         .from('productos')
         .select('stock, stock_minimo')
         .eq('estado', 'activo');
-    debugPrint('[dashboard] productos OK: ${productos.length} rows');
+    if (kDebugMode) print('[dashboard] productos OK: ${productos.length} rows');
 
     final stockCritico = productos.where((p) {
       final stock = (p['stock'] as num).toInt();
@@ -73,22 +73,22 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
     }).length;
 
     // 2. Tareas pendientes
-    debugPrint('[dashboard] consultando tareas...');
+    if (kDebugMode) print('[dashboard] consultando tareas...');
     final tareas = await client
         .from('tareas')
         .select('id')
         .eq('completado', false);
-    debugPrint('[dashboard] tareas OK: ${tareas.length} rows');
+    if (kDebugMode) print('[dashboard] tareas OK: ${tareas.length} rows');
     final tareasPendientes = tareas.length;
 
     // 3. Asistencia hoy
-    debugPrint('[dashboard] consultando asistencia...');
+    if (kDebugMode) print('[dashboard] consultando asistencia...');
     final asistencia = await client
         .from('asistencia')
         .select('presente')
         .eq('fecha', today)
         .eq('reunion_tipo', 'diaria');
-    debugPrint('[dashboard] asistencia OK: ${asistencia.length} rows');
+    if (kDebugMode) print('[dashboard] asistencia OK: ${asistencia.length} rows');
     final presentesHoy =
         asistencia.where((a) => a['presente'] == true).length;
 
@@ -98,12 +98,12 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
         .select('id')
         .eq('activo', true);
     final totalEquipo = usuarios.length;
-    debugPrint('[dashboard] equipo: $totalEquipo usuarios');
+    if (kDebugMode) print('[dashboard] equipo: $totalEquipo usuarios');
 
     // 5. Próximo drop:
     //    Primera búsqueda: planificacion/produccion con fecha futura (gte skips nulls).
     //    Fallback: planificacion/produccion sin importar si tienen fecha o no.
-    debugPrint('[dashboard] consultando drops...');
+    if (kDebugMode) print('[dashboard] consultando drops...');
     var rawDrops = await client
         .from('drops')
         .select('nombre, fecha_lanzamiento, estado')
@@ -120,7 +120,7 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
           .order('created_at', ascending: false)
           .limit(5) as List;
     }
-    debugPrint('[dashboard] drops OK: ${rawDrops.length} rows');
+    if (kDebugMode) print('[dashboard] drops OK: ${rawDrops.length} rows');
 
     final dropsValidos = rawDrops;
 
@@ -140,7 +140,7 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
       }
     }
 
-    debugPrint('[dashboard] métricas: stock=$stockCritico, tareas=$tareasPendientes, presentes=$presentesHoy/$totalEquipo, drop=${diasProximoDrop}d');
+    if (kDebugMode) print('[dashboard] métricas: stock=$stockCritico, tareas=$tareasPendientes, presentes=$presentesHoy/$totalEquipo, drop=${diasProximoDrop}d');
 
     return DashboardData(
       stockCritico: stockCritico,
@@ -152,8 +152,8 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
       fechaProximoDrop: fechaDrop,
     );
   } catch (e, st) {
-    debugPrint('[dashboard] ERROR en dashboardDataProvider: $e');
-    debugPrint(st.toString());
+    if (kDebugMode) print('[dashboard] ERROR en dashboardDataProvider: $e');
+    if (kDebugMode) print(st.toString());
     rethrow;
   }
 });
@@ -172,9 +172,86 @@ final notificacionesRecientesProvider =
         .limit(3);
     return List<Map<String, dynamic>>.from(data);
   } catch (e) {
-    debugPrint('[notif] ERROR: $e');
+    if (kDebugMode) print('[notif] ERROR: $e');
     return [];
   }
 });
 
 // notifSinLeerProvider se define en notificaciones/providers/notificaciones_provider.dart
+
+// ─── Dashboard exclusivo para diseñadora ─────────────────────────────────────
+
+class DashboardDisenoraData {
+  final List<Map<String, dynamic>> disenosActivos; // proceso|avance|revision
+  final List<Map<String, dynamic>> briefsPendientes; // estado = brief
+  final String? ultimoFeedback;
+  final String? ultimoFeedbackTitulo;
+
+  const DashboardDisenoraData({
+    required this.disenosActivos,
+    required this.briefsPendientes,
+    this.ultimoFeedback,
+    this.ultimoFeedbackTitulo,
+  });
+
+  int get disenosCount => disenosActivos.length;
+  int get briefsCount => briefsPendientes.length;
+
+  Map<String, dynamic>? get proximaEntrega {
+    final todas = [...disenosActivos, ...briefsPendientes]
+        .where((d) => d['fecha_limite'] != null)
+        .toList();
+    if (todas.isEmpty) return null;
+    todas.sort((a, b) =>
+        (a['fecha_limite'] as String).compareTo(b['fecha_limite'] as String));
+    return todas.first;
+  }
+}
+
+final dashboardDisenoraProvider =
+    FutureProvider<DashboardDisenoraData>((ref) async {
+  ref.watch(authStateProvider);
+  final userId = Supabase.instance.client.auth.currentUser?.id;
+  if (userId == null) {
+    return const DashboardDisenoraData(
+        disenosActivos: [], briefsPendientes: []);
+  }
+  final client = Supabase.instance.client;
+  try {
+    final activos = await client
+        .from('disenios')
+        .select('id, titulo, estado, fecha_limite, version, drops(nombre)')
+        .eq('disenadora_id', userId)
+        .inFilter('estado', ['proceso', 'avance', 'revision'])
+        .order('fecha_limite', ascending: true, nullsFirst: false);
+
+    final briefs = await client
+        .from('disenios')
+        .select('id, titulo, estado, fecha_limite, version, drops(nombre)')
+        .eq('disenadora_id', userId)
+        .eq('estado', 'brief')
+        .order('fecha_limite', ascending: true, nullsFirst: false);
+
+    final rechazados = await client
+        .from('disenios')
+        .select('titulo, feedback')
+        .eq('disenadora_id', userId)
+        .eq('estado', 'rechazado')
+        .not('feedback', 'is', null)
+        .order('updated_at', ascending: false)
+        .limit(1);
+
+    final ultimo = (rechazados as List).isNotEmpty ? rechazados.first : null;
+
+    return DashboardDisenoraData(
+      disenosActivos:
+          List<Map<String, dynamic>>.from(activos as List),
+      briefsPendientes:
+          List<Map<String, dynamic>>.from(briefs as List),
+      ultimoFeedback: ultimo?['feedback'] as String?,
+      ultimoFeedbackTitulo: ultimo?['titulo'] as String?,
+    );
+  } catch (e) {
+    rethrow;
+  }
+});

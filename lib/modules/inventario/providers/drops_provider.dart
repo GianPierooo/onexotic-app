@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -13,7 +13,7 @@ final dropsInventarioProvider = FutureProvider<List<Drop>>((ref) async {
         .order('created_at');
     return (data as List).map((j) => Drop.fromJson(j)).toList();
   } catch (e) {
-    debugPrint('[drops inventario] ERROR: $e');
+    if (kDebugMode) print('[drops inventario] ERROR: $e');
     return [];
   }
 });
@@ -55,7 +55,7 @@ class GestionarDropsNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[drops] crear ERROR: $e');
+      if (kDebugMode) print('[drops] crear ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -81,7 +81,7 @@ class GestionarDropsNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[drops] editar ERROR: $e');
+      if (kDebugMode) print('[drops] editar ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -100,7 +100,7 @@ class GestionarDropsNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return (ok: true, tieneProductos: false);
     } catch (e) {
-      debugPrint('[drops] eliminar ERROR: $e');
+      if (kDebugMode) print('[drops] eliminar ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return (ok: false, tieneProductos: false);
     }
@@ -124,7 +124,7 @@ class GestionarDropsNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[drops] eliminar ERROR: $e');
+      if (kDebugMode) print('[drops] eliminar ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }

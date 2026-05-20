@@ -1,3 +1,4 @@
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -224,7 +225,7 @@ class _OnboardingLauncherState extends ConsumerState<OnboardingLauncher> {
         ref.invalidate(guiaVistaProvider(widget.modulo));
       }
     } catch (e) {
-      debugPrint('[OnboardingLauncher:${widget.modulo}] ERROR: $e');
+      if (kDebugMode) print('[OnboardingLauncher:${widget.modulo}] ERROR: $e');
     }
   }
 

@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,7 +21,7 @@ final briefDeDisenioProvider =
         .maybeSingle();
     return data != null ? Brief.fromJson(data) : null;
   } catch (e) {
-    debugPrint('[briefs] ERROR: $e');
+    if (kDebugMode) print('[briefs] ERROR: $e');
     return null;
   }
 });
@@ -42,7 +42,7 @@ final dropsDisponiblesProvider =
             })
         .toList();
   } catch (e) {
-    debugPrint('[drops] ERROR: $e');
+    if (kDebugMode) print('[drops] ERROR: $e');
     return [];
   }
 });
@@ -94,7 +94,7 @@ class CrearBriefNotifier extends StateNotifier<AsyncValue<void>> {
             client.storage.from('referencias').getPublicUrl(path),
           );
         } catch (e) {
-          debugPrint('[subir imagen ref] ERROR: $e');
+          if (kDebugMode) print('[subir imagen ref] ERROR: $e');
         }
       }
 
@@ -174,7 +174,7 @@ class CrearBriefNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[crear brief] ERROR: $e');
+      if (kDebugMode) print('[crear brief] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }

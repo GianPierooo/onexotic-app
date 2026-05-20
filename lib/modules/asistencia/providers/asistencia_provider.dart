@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -100,7 +100,7 @@ final reunionHoyProvider = FutureProvider<ReunionHoyData>((ref) async {
 
     return ReunionHoyData(miembros: miembros, yaMarque: yaMarque);
   } catch (e, st) {
-    debugPrint('[reunionHoy] ERROR: $e\n$st');
+    if (kDebugMode) print('[reunionHoy] ERROR: $e\n$st');
     rethrow;
   }
 });
@@ -146,7 +146,7 @@ final semanaAsistenciaProvider =
       return DiaSemana(fecha: dia, estado: estado);
     }).toList();
   } catch (e) {
-    debugPrint('[semana] ERROR: $e');
+    if (kDebugMode) print('[semana] ERROR: $e');
     return List.generate(
         7, (i) => DiaSemana(fecha: monday.add(Duration(days: i))));
   }
@@ -184,7 +184,7 @@ final historialProvider =
       };
     }).toList();
   } catch (e) {
-    debugPrint('[historial] ERROR: $e');
+    if (kDebugMode) print('[historial] ERROR: $e');
     return [];
   }
 });

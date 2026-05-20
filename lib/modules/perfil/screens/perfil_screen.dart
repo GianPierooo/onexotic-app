@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -160,6 +161,43 @@ class PerfilScreen extends ConsumerWidget {
                         ],
                         const SizedBox(height: 12),
                         RolBadge(rol: rol),
+                        const SizedBox(height: 16),
+                        GestureDetector(
+                          onTap: () => _abrirEditarPerfil(
+                            context,
+                            nombre: nombre,
+                            apellido: user['apellido'] as String? ?? '',
+                            telefono: user['telefono'] as String? ?? '',
+                            avatarUrl: user['avatar_url'] as String?,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface2,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: AppColors.border, width: 0.5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.edit_rounded,
+                                    size: 14,
+                                    color: AppColors.textSecondary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Editar perfil',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ).animate().fadeIn(duration: 350.ms),
                   ),
@@ -305,7 +343,7 @@ class PerfilScreen extends ConsumerWidget {
                                 iconColor: AppColors.textSecondary,
                                 label: 'Versión',
                                 sublabel: '1.0.0',
-                                trailing: SizedBox.shrink(),
+                                trailing: const SizedBox.shrink(),
                               ),
                             ],
                           ),
@@ -595,6 +633,330 @@ class _StatsLoading extends StatelessWidget {
         Row(children: [_card(), const SizedBox(width: 12), _card()]),
         const SizedBox(height: 12),
         Row(children: [_card(), const SizedBox(width: 12), _card()]),
+      ],
+    );
+  }
+}
+
+// ─── Editar perfil ────────────────────────────────────────────────────────────
+
+void _abrirEditarPerfil(
+  BuildContext context, {
+  required String nombre,
+  required String apellido,
+  required String telefono,
+  String? avatarUrl,
+}) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!context.mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditarPerfilSheet(
+        nombreInicial: nombre,
+        apellidoInicial: apellido,
+        telefonoInicial: telefono,
+        avatarUrlInicial: avatarUrl,
+      ),
+    );
+  });
+}
+
+class _EditarPerfilSheet extends ConsumerStatefulWidget {
+  final String nombreInicial;
+  final String apellidoInicial;
+  final String telefonoInicial;
+  final String? avatarUrlInicial;
+
+  const _EditarPerfilSheet({
+    required this.nombreInicial,
+    required this.apellidoInicial,
+    required this.telefonoInicial,
+    this.avatarUrlInicial,
+  });
+
+  @override
+  ConsumerState<_EditarPerfilSheet> createState() => _EditarPerfilSheetState();
+}
+
+class _EditarPerfilSheetState extends ConsumerState<_EditarPerfilSheet> {
+  late final TextEditingController _nombreCtrl;
+  late final TextEditingController _apellidoCtrl;
+  late final TextEditingController _telefonoCtrl;
+  String? _avatarUrl;
+  bool _guardando = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _nombreCtrl = TextEditingController(text: widget.nombreInicial);
+    _apellidoCtrl = TextEditingController(text: widget.apellidoInicial);
+    _telefonoCtrl = TextEditingController(text: widget.telefonoInicial);
+    _avatarUrl = widget.avatarUrlInicial;
+  }
+
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    _apellidoCtrl.dispose();
+    _telefonoCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _seleccionarFoto() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (file == null) return;
+    setState(() => _guardando = true);
+    try {
+      final bytes = await file.readAsBytes();
+      final ext = file.path.split('.').last.toLowerCase();
+      final url = await ref
+          .read(actualizarPerfilProvider.notifier)
+          .subirAvatar(bytes, ext);
+      if (url != null) setState(() => _avatarUrl = url);
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
+  }
+
+  Future<void> _guardar() async {
+    final nombre = _nombreCtrl.text.trim();
+    if (nombre.isEmpty) {
+      setState(() => _error = 'El nombre es obligatorio');
+      return;
+    }
+    setState(() {
+      _guardando = true;
+      _error = null;
+    });
+    final ok = await ref
+        .read(actualizarPerfilProvider.notifier)
+        .actualizar(
+          nombre: nombre,
+          apellido: _apellidoCtrl.text.trim(),
+          telefono: _telefonoCtrl.text.trim(),
+          avatarUrl: _avatarUrl,
+        );
+    if (!mounted) return;
+    setState(() => _guardando = false);
+    if (ok) {
+      Navigator.pop(context);
+    } else {
+      setState(() => _error = 'No se pudo guardar. Intenta de nuevo.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final initials = _nombreCtrl.text.isNotEmpty
+        ? _nombreCtrl.text[0].toUpperCase()
+        : '?';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + bottomInset),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 20),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Título
+          Text(
+            'Editar perfil',
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Avatar
+          Center(
+            child: GestureDetector(
+              onTap: _guardando ? null : _seleccionarFoto,
+              child: Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: AppColors.accent,
+                    backgroundImage:
+                        _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
+                    child: _avatarUrl == null
+                        ? Text(
+                            initials,
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          )
+                        : null,
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: AppColors.accent,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: AppColors.surface, width: 2),
+                      ),
+                      child: const Icon(Icons.camera_alt_rounded,
+                          size: 14, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Nombre
+          _Campo(label: 'NOMBRE *', child: TextField(
+            controller: _nombreCtrl,
+            style: GoogleFonts.inter(
+                fontSize: 14, color: AppColors.textPrimary),
+            decoration: _inputDeco('Nombre'),
+          )),
+          const SizedBox(height: 14),
+
+          // Apellido
+          _Campo(label: 'APELLIDO', child: TextField(
+            controller: _apellidoCtrl,
+            style: GoogleFonts.inter(
+                fontSize: 14, color: AppColors.textPrimary),
+            decoration: _inputDeco('Apellido'),
+          )),
+          const SizedBox(height: 14),
+
+          // Teléfono
+          _Campo(label: 'TELÉFONO / WHATSAPP', child: TextField(
+            controller: _telefonoCtrl,
+            keyboardType: TextInputType.phone,
+            style: GoogleFonts.inter(
+                fontSize: 14, color: AppColors.textPrimary),
+            decoration: _inputDeco('+51 999 000 000'),
+          )),
+
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _error!,
+              style: GoogleFonts.inter(fontSize: 12, color: AppColors.error),
+            ),
+          ],
+
+          const SizedBox(height: 28),
+
+          // Botón guardar
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: _guardando ? null : _guardar,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                disabledBackgroundColor:
+                    AppColors.accent.withValues(alpha: 0.5),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: _guardando
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(
+                      'Guardar cambios',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _inputDeco(String hint) => InputDecoration(
+        hintText: hint,
+        hintStyle:
+            GoogleFonts.inter(fontSize: 14, color: AppColors.textTertiary),
+        filled: true,
+        fillColor: AppColors.surface2,
+        contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: AppColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: AppColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+        ),
+      );
+}
+
+class _Campo extends StatelessWidget {
+  final String label;
+  final Widget child;
+  const _Campo({required this.label, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textTertiary,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: 6),
+        child,
       ],
     );
   }

@@ -1,3 +1,4 @@
+﻿import 'package:flutter/foundation.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -101,7 +102,7 @@ class _AgregarProductoBottomSheetState
         _pickedBytes = bytes;
       });
     } catch (e) {
-      debugPrint('[image picker] ERROR: $e');
+      if (kDebugMode) print('[image picker] ERROR: $e');
     }
   }
 
@@ -120,7 +121,7 @@ class _AgregarProductoBottomSheetState
           .from('productos')
           .getPublicUrl(fileName);
     } catch (e) {
-      debugPrint('[upload imagen] ERROR: $e');
+      if (kDebugMode) print('[upload imagen] ERROR: $e');
       return null;
     } finally {
       if (mounted) setState(() => _isUploading = false);

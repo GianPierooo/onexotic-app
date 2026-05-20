@@ -1,4 +1,4 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
+﻿import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,7 +11,7 @@ Future<void> onFcmBackgroundMessage(RemoteMessage message) async {
   // Firebase ya muestra la notificación del sistema automáticamente
   // a partir del campo notification{} del payload FCM.
   // Este handler es para lógica adicional (ej. guardar en local storage).
-  debugPrint(
+  if (kDebugMode) print(
     '[FCM background] ${message.notification?.title} — ${message.notification?.body}',
   );
 }
@@ -35,7 +35,7 @@ class FcmService {
       provisional: false,
       sound: true,
     );
-    debugPrint('[FCM] permiso: ${settings.authorizationStatus.name}');
+    if (kDebugMode) print('[FCM] permiso: ${settings.authorizationStatus.name}');
 
     // Mostrar notificaciones mientras la app está en primer plano
     await _messaging.setForegroundNotificationPresentationOptions(
@@ -46,7 +46,7 @@ class FcmService {
 
     // Handler para mensajes con la app en primer plano
     FirebaseMessaging.onMessage.listen((message) {
-      debugPrint(
+      if (kDebugMode) print(
         '[FCM foreground] ${message.notification?.title}: ${message.notification?.body}',
       );
       // La UI se actualizará automáticamente via Supabase Realtime
@@ -55,7 +55,7 @@ class FcmService {
 
     // Handler para cuando el usuario toca la notificación del sistema
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      debugPrint('[FCM tap] tipo=${message.data["tipo"]}');
+      if (kDebugMode) print('[FCM tap] tipo=${message.data["tipo"]}');
       // TODO: navegar a la pantalla correspondiente según message.data["tipo"]
     });
   }
@@ -82,16 +82,16 @@ class FcmService {
           .update({'fcm_token': token})
           .eq('id', userId);
 
-      debugPrint('[FCM] token guardado (${token.substring(0, 20)}...)');
+      if (kDebugMode) print('[FCM] token guardado (${token.substring(0, 20)}...)');
     } catch (e) {
-      debugPrint('[FCM] ERROR guardando token: $e');
+      if (kDebugMode) print('[FCM] ERROR guardando token: $e');
     }
   }
 
   /// Escucha renovaciones de token y las persiste automáticamente.
   static void listenTokenRefresh() {
     _messaging.onTokenRefresh.listen((token) async {
-      debugPrint('[FCM] token renovado');
+      if (kDebugMode) print('[FCM] token renovado');
       await saveToken();
     });
   }

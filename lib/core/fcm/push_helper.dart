@@ -44,10 +44,10 @@ Future<void> pushNotif({
             if (notifId != null) 'notification_id': notifId,
           },
         )
-        .then((_) => debugPrint('[push] enviado a $userId'))
-        .catchError((e) => debugPrint('[push] ERROR: $e'));
+        .then((_) { if (kDebugMode) print('[push] enviado a $userId'); })
+        .catchError((e) { if (kDebugMode) print('[push] ERROR: $e'); });
   } catch (e) {
-    debugPrint('[pushNotif] ERROR: $e');
+    if (kDebugMode) print('[pushNotif] ERROR: $e');
   }
 }
 

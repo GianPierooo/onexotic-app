@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,7 +22,7 @@ final avancesDeDisenioProvider =
         .order('created_at', ascending: false);
     return (data as List).map((j) => DisenioAvance.fromJson(j)).toList();
   } catch (e) {
-    debugPrint('[avances] ERROR: $e');
+    if (kDebugMode) print('[avances] ERROR: $e');
     return [];
   }
 });
@@ -99,7 +99,7 @@ class SubirAvanceNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[subir avance] ERROR: $e');
+      if (kDebugMode) print('[subir avance] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }

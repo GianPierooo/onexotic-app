@@ -1,4 +1,4 @@
-// SQL requerido en Supabase:
+﻿// SQL requerido en Supabase:
 //
 // CREATE TABLE IF NOT EXISTS eventos_calendario (
 //   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -16,6 +16,7 @@
 // CREATE POLICY "auth_all_eventos" ON eventos_calendario
 //   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -138,7 +139,7 @@ final calendarioEventosProvider =
       ));
     }
   } catch (e) {
-    debugPrint('[calendario] eventos: $e');
+    if (kDebugMode) print('[calendario] eventos: $e');
   }
 
   // 2. Drops → fecha_lanzamiento
@@ -161,7 +162,7 @@ final calendarioEventosProvider =
       ));
     }
   } catch (e) {
-    debugPrint('[calendario] drops: $e');
+    if (kDebugMode) print('[calendario] drops: $e');
   }
 
   // 3. Reuniones
@@ -190,7 +191,7 @@ final calendarioEventosProvider =
       ));
     }
   } catch (e) {
-    debugPrint('[calendario] reuniones: $e');
+    if (kDebugMode) print('[calendario] reuniones: $e');
   }
 
   // 4. Tareas → fecha_limite (no completadas)
@@ -214,7 +215,7 @@ final calendarioEventosProvider =
       ));
     }
   } catch (e) {
-    debugPrint('[calendario] tareas: $e');
+    if (kDebugMode) print('[calendario] tareas: $e');
   }
 
   // 5. Diseños → fecha_limite
@@ -237,7 +238,7 @@ final calendarioEventosProvider =
       ));
     }
   } catch (e) {
-    debugPrint('[calendario] diseños: $e');
+    if (kDebugMode) print('[calendario] diseños: $e');
   }
 
   return mapa;
@@ -283,7 +284,7 @@ class CrearEventoNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[crear evento] ERROR: $e');
+      if (kDebugMode) print('[crear evento] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -351,7 +352,7 @@ class EditarEventoNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[editar evento] ERROR: $e');
+      if (kDebugMode) print('[editar evento] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
@@ -380,7 +381,7 @@ class EliminarEventoNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return true;
     } catch (e) {
-      debugPrint('[eliminar evento] ERROR: $e');
+      if (kDebugMode) print('[eliminar evento] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
       return false;
     }
