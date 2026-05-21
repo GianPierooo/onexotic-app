@@ -1,5 +1,9 @@
-﻿import 'package:firebase_messaging/firebase_messaging.dart';
+﻿import 'dart:typed_data';
+
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/app_config.dart';
@@ -9,11 +13,11 @@ import 'pending_route_notifier.dart';
 // Se invoca cuando llega un push con la app cerrada o en segundo plano.
 @pragma('vm:entry-point')
 Future<void> onFcmBackgroundMessage(RemoteMessage message) async {
-  // Firebase ya muestra la notificación del sistema automáticamente
-  // a partir del campo notification{} del payload FCM.
-  // Este handler es para lógica adicional (ej. guardar en local storage).
+  // No se necesita hacer nada más: FCM muestra la notificación
+  // automáticamente gracias al canal creado con IMPORTANCE_HIGH.
+  // El canal fue registrado al inicio del app, Android lo recuerda.
   if (kDebugMode) print(
-    '[FCM background] ${message.notification?.title} — ${message.notification?.body}',
+    '[FCM background] ${message.notification?.title}',
   );
 }
 
@@ -23,6 +27,11 @@ class FcmService {
   /// Inicializa FCM: permisos, handlers y opciones de presentación.
   /// Llamar en main() DESPUÉS de Firebase.initializeApp().
   static Future<void> init() async {
+    // El canal debe existir ANTES de que llegue cualquier push — si no,
+    // Android cae al canal default silencioso y la priority:"high" del
+    // payload FCM queda ignorada.
+    await _crearCanalAndroid();
+
     // Registra el handler de mensajes en segundo plano / app cerrada
     FirebaseMessaging.onBackgroundMessage(onFcmBackgroundMessage);
 
@@ -37,6 +46,9 @@ class FcmService {
       sound: true,
     );
     if (kDebugMode) print('[FCM] permiso: ${settings.authorizationStatus.name}');
+
+    // En iOS garantiza que el token APNs se genere automáticamente.
+    await _messaging.setAutoInitEnabled(true);
 
     // Mostrar notificaciones mientras la app está en primer plano
     await _messaging.setForegroundNotificationPresentationOptions(
@@ -72,6 +84,41 @@ class FcmService {
       final ruta = _routeForTipo(initialMsg.data["tipo"] as String?);
       if (ruta != null) pendingRouteNotifier.value = ruta;
     }
+
+    if (kDebugMode && defaultTargetPlatform == TargetPlatform.android) {
+      final plugin = FlutterLocalNotificationsPlugin();
+      final channels = await plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.getNotificationChannels();
+      print('[FCM] canales registrados: ${channels?.map((c) => c.id).toList()}');
+    }
+  }
+
+  /// Registra el canal Android para FCM. Android cachea el canal por id, así
+  /// que esta llamada es idempotente: si ya existe, ignora la nueva config.
+  /// Si el canal fue creado antes con otras propiedades hay que desinstalar
+  /// la app para que el sistema acepte los nuevos valores.
+  static Future<void> _crearCanalAndroid() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    final plugin = FlutterLocalNotificationsPlugin();
+    final channel = AndroidNotificationChannel(
+      'onexotic_default',
+      'OnExotic',
+      description: 'Notificaciones del equipo OnExotic',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+      vibrationPattern: Int64List.fromList([0, 400, 200, 400]),
+      enableLights: true,
+      ledColor: const Color(0xFFFF4500),
+      showBadge: true,
+    );
+    await plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+    if (kDebugMode) print('[FCM] canal Android creado: onexotic_default');
   }
 
   /// Mapea el campo `tipo` del payload data a la ruta destino dentro de la app.

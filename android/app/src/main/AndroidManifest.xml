@@ -1,8 +1,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
         android:label="onexotic_app"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Canal default para FCM — debe coincidir con channel_id en Edge Function -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="onexotic_default"/>
+        <!-- Icono de notificación (blanco sobre transparente para Android) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher"/>
+        <!-- Color accent OnExotic -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
