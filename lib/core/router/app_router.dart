@@ -17,6 +17,7 @@ import '../../modules/disenios/screens/disenios_screen.dart';
 import '../../modules/disenios/models/disenio.dart';
 import '../../modules/chat/providers/chat_provider.dart';
 import '../../modules/chat/screens/chat_screen.dart';
+import '../../modules/chat/screens/mensajes_screen.dart';
 import '../../modules/equipo/models/usuario.dart';
 import '../../modules/equipo/providers/equipo_provider.dart';
 import '../../modules/equipo/screens/equipo_screen.dart';
@@ -66,6 +67,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Branch indices:
       //   0 dashboard · 1 asistencia · 2 tareas · 3 equipo · 4 perfil
       //   5 inventario · 6 disenios · 7 calendario · 8 ai · 9 notificaciones
+      //   10 mensajes (con sub-ruta /chat para chat 1-a-1)
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -185,6 +187,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(
               path: '/notificaciones',
               builder: (_, __) => const NotificacionesScreen(),
+            ),
+          ]),
+          // 10 · Mensajes (bandeja del equipo + chat 1-a-1)
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/mensajes',
+              builder: (_, __) => const MensajesScreen(),
+              routes: [
+                GoRoute(
+                  path: 'chat',
+                  builder: (context, state) {
+                    final otro = state.extra as Usuario;
+                    return ChatScreen(otro: otro);
+                  },
+                ),
+              ],
             ),
           ]),
         ],

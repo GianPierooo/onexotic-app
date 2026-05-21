@@ -15,6 +15,7 @@ import '../../notificaciones/providers/notificaciones_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../widgets/acceso_rapido_ia.dart';
 import '../widgets/actividad_reciente_list.dart';
+import '../widgets/bandeja_mensajes_block.dart';
 import '../widgets/metric_card.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -104,32 +105,7 @@ class DashboardScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate(
-                    rol == 'disenadora'
-                        ? [
-                            const _DisenoraContent(),
-                            const SizedBox(height: 28),
-                            const SectionLabel('ACCESO RAPIDO'),
-                            const SizedBox(height: 14),
-                            const AccesoRapidoIA(),
-                            const SizedBox(height: 8),
-                          ]
-                        : [
-                            const SectionLabel('RESUMEN'),
-                            const SizedBox(height: 14),
-                            dataAsync.when(
-                              loading: () => const ShimmerMetricGrid(),
-                              error: (e, _) => _ErrorBanner('$e'),
-                              data: (data) =>
-                                  _buildMetricasGrid(context, data, rol: rol),
-                            ),
-                            const SizedBox(height: 28),
-                            const ActividadRecienteList(),
-                            const SizedBox(height: 28),
-                            const SectionLabel('ACCESO RAPIDO'),
-                            const SizedBox(height: 14),
-                            const AccesoRapidoIA(),
-                            const SizedBox(height: 8),
-                          ],
+                    _buildContent(context, rol, dataAsync),
                   ),
                 ),
               ),
@@ -140,6 +116,56 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  // ─── Contenido por rol ─────────────────────────────────────────────────────
+  //
+  // El bloque "Mensajes" aparece SOLO para diseñadora y producción — los
+  // únicos roles que no tienen Equipo en su bottom nav y por tanto no podían
+  // abrir un chat antes. Para CEO y RRHH el acceso sigue siendo via /equipo.
+
+  List<Widget> _buildContent(
+    BuildContext context,
+    String rol,
+    AsyncValue<DashboardData> dataAsync,
+  ) {
+    final mostrarMensajes = rol == 'disenadora' || rol == 'produccion';
+
+    if (rol == 'disenadora') {
+      return [
+        const _DisenoraContent(),
+        if (mostrarMensajes) ...[
+          const SizedBox(height: 28),
+          const BandejaMensajesBlock(),
+        ],
+        const SizedBox(height: 28),
+        const SectionLabel('ACCESO RAPIDO'),
+        const SizedBox(height: 14),
+        const AccesoRapidoIA(),
+        const SizedBox(height: 8),
+      ];
+    }
+
+    return [
+      const SectionLabel('RESUMEN'),
+      const SizedBox(height: 14),
+      dataAsync.when(
+        loading: () => const ShimmerMetricGrid(),
+        error: (e, _) => _ErrorBanner('$e'),
+        data: (data) => _buildMetricasGrid(context, data, rol: rol),
+      ),
+      const SizedBox(height: 28),
+      const ActividadRecienteList(),
+      if (mostrarMensajes) ...[
+        const SizedBox(height: 28),
+        const BandejaMensajesBlock(),
+      ],
+      const SizedBox(height: 28),
+      const SectionLabel('ACCESO RAPIDO'),
+      const SizedBox(height: 14),
+      const AccesoRapidoIA(),
+      const SizedBox(height: 8),
+    ];
   }
 
   // ─── Header ────────────────────────────────────────────────────────────────
