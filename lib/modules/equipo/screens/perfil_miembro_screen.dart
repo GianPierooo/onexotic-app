@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../providers/equipo_provider.dart';
 import '../widgets/asistencia_bar.dart';
@@ -23,6 +25,8 @@ class PerfilMiembroScreen extends ConsumerWidget {
     final u = stats.usuario;
     final rolColor = RolBadge.colorForRol(u.rol);
     final mes = _meses[DateTime.now().month - 1];
+    final yo = Supabase.instance.client.auth.currentUser?.id;
+    final esOtraPersona = yo != null && yo != u.id;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -86,6 +90,10 @@ class PerfilMiembroScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 6),
                   RolBadge(rol: u.rol),
+                  if (esOtraPersona) ...[
+                    const SizedBox(height: 16),
+                    _BotonEnviarMensaje(usuario: u),
+                  ],
                 ],
               ),
             ),
@@ -188,6 +196,44 @@ class _Section extends StatelessWidget {
         fontWeight: FontWeight.w500,
         color: AppColors.textTertiary,
         letterSpacing: 0.8,
+      ),
+    );
+  }
+}
+
+// ─── Botón "Enviar mensaje" → abre el chat 1-a-1 ────────────────────────────
+
+class _BotonEnviarMensaje extends StatelessWidget {
+  final dynamic usuario;
+  const _BotonEnviarMensaje({required this.usuario});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/equipo/chat', extra: usuario),
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.accent,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.chat_bubble_outline_rounded,
+                size: 16, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              'Enviar mensaje',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

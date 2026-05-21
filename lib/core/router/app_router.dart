@@ -15,6 +15,9 @@ import '../../modules/disenios/screens/brief_screen.dart';
 import '../../modules/disenios/screens/disenio_detalle_screen.dart';
 import '../../modules/disenios/screens/disenios_screen.dart';
 import '../../modules/disenios/models/disenio.dart';
+import '../../modules/chat/providers/chat_provider.dart';
+import '../../modules/chat/screens/chat_screen.dart';
+import '../../modules/equipo/models/usuario.dart';
 import '../../modules/equipo/providers/equipo_provider.dart';
 import '../../modules/equipo/screens/equipo_screen.dart';
 import '../../modules/equipo/screens/perfil_miembro_screen.dart';
@@ -29,6 +32,7 @@ import '../../modules/tareas/models/tarea.dart';
 import '../../modules/tareas/screens/tarea_detail_screen.dart';
 import '../../modules/tareas/screens/tareas_screen.dart';
 import '../theme/app_colors.dart';
+import 'mas_sheet.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -106,6 +110,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   builder: (context, state) {
                     final stats = state.extra as UsuarioConStats;
                     return PerfilMiembroScreen(stats: stats);
+                  },
+                ),
+                GoRoute(
+                  path: 'chat',
+                  builder: (context, state) {
+                    final otro = state.extra as Usuario;
+                    return ChatScreen(otro: otro);
                   },
                 ),
               ],
@@ -196,19 +207,17 @@ class _NavItem {
   const _NavItem(this.icon, this.activeIcon, this.label, this.branchIndex);
 }
 
-class _MasItem {
-  final IconData icon;
-  final String label;
-  final int branchIndex;
-  const _MasItem(this.icon, this.label, this.branchIndex);
-}
-
 // --- AppShell -----------------------------------------------------------------
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
   const AppShell({super.key, required this.navigationShell});
 
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
   // -- Nav items por rol --------------------------------------------------------
   static const _ceoNavItems = <_NavItem>[
     _NavItem(Icons.home_outlined, Icons.home_rounded, 'Inicio', 0),
@@ -242,19 +251,6 @@ class AppShell extends ConsumerWidget {
     _NavItem(Icons.person_outline_rounded, Icons.person_rounded, 'Perfil', 4),
   ];
 
-  // -- CEO "Más" items ----------------------------------------------------------
-  static const _masItems = <_MasItem>[
-    _MasItem(Icons.access_time_rounded, 'Asistencia', 1),
-    _MasItem(Icons.check_box_rounded, 'Tareas', 2),
-    _MasItem(Icons.calendar_month_rounded, 'Calendario', 7),
-    _MasItem(Icons.notifications_rounded, 'Notificaciones', 9),
-    _MasItem(Icons.person_rounded, 'Perfil', 4),
-    _MasItem(Icons.auto_awesome_rounded, 'IA Asistente', 8),
-  ];
-
-  // Branches que pertenecen al "Más" del CEO
-  static const _ceoBranchesEnMas = {1, 2, 4, 7, 8, 9};
-
   List<_NavItem> _navItems(String rol) => switch (rol) {
     'ceo'        => _ceoNavItems,
     'disenadora' => _disenadoraNavItems,
@@ -263,55 +259,33 @@ class AppShell extends ConsumerWidget {
     _            => _ceoNavItems,
   };
 
+  /// Devuelve la posición del nav item para el branch actual.
+  /// Si el branch no corresponde a ningún item visible (ej. rutas del sheet
+  /// "Más"), retorna -1 → ningún item queda marcado como seleccionado.
   int _currentNavPos(String rol, int branchIndex) {
     final items = _navItems(rol);
     for (int i = 0; i < items.length; i++) {
       if (items[i].branchIndex == branchIndex) return i;
     }
-    if (rol == 'ceo' && _ceoBranchesEnMas.contains(branchIndex)) return 4;
-    return 0;
+    return -1;
   }
 
-  void _onNavTap(BuildContext context, String rol, int navPos) {
+  void _onNavTap(String rol, int navPos) {
     final item = _navItems(rol)[navPos];
     if (item.branchIndex == -1) {
-      _showMasSheet(context);
+      // Botón "Más" → abre sheet SIEMPRE, sin condición de ruta actual.
+      mostrarMasSheet(context);
       return;
     }
     HapticFeedback.selectionClick();
-    navigationShell.goBranch(
+    widget.navigationShell.goBranch(
       item.branchIndex,
-      initialLocation: item.branchIndex == navigationShell.currentIndex,
+      initialLocation: item.branchIndex == widget.navigationShell.currentIndex,
     );
   }
 
-  void _showMasSheet(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) return;
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: AppColors.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        builder: (_) => _MasSheet(
-          items: _masItems,
-          currentBranchIndex: navigationShell.currentIndex,
-          onSelect: (branchIndex) {
-            Navigator.pop(context);
-            HapticFeedback.selectionClick();
-            navigationShell.goBranch(
-              branchIndex,
-              initialLocation: branchIndex == navigationShell.currentIndex,
-            );
-          },
-        ),
-      );
-    });
-  }
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final userAsync = ref.watch(currentUserProvider);
     final rol = userAsync.maybeWhen(
       data: (u) => u?['rol'] as String? ?? 'ceo',
@@ -319,122 +293,20 @@ class AppShell extends ConsumerWidget {
     );
 
     final items = _navItems(rol);
-    final currentPos = _currentNavPos(rol, navigationShell.currentIndex);
+    final currentPos = _currentNavPos(rol, widget.navigationShell.currentIndex);
+    // Para los roles cuya nav incluye Equipo, el badge va ahí (branch 3).
+    // Para los demás (diseñadora/producción) va en el botón "Más" (branch -1).
+    final badgeTargetBranch =
+        items.any((i) => i.branchIndex == 3) ? 3 : -1;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: navigationShell,
+      body: widget.navigationShell,
       bottomNavigationBar: _OnExoticBottomNav(
         items: items,
         currentIndex: currentPos,
-        onTap: (i) => _onNavTap(context, rol, i),
-      ),
-    );
-  }
-}
-
-// --- "Más" bottom sheet --------------------------------------------------------
-
-class _MasSheet extends StatelessWidget {
-  final List<_MasItem> items;
-  final int currentBranchIndex;
-  final ValueChanged<int> onSelect;
-
-  const _MasSheet({
-    required this.items,
-    required this.currentBranchIndex,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            Text(
-              'Más módulos',
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 14),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 1.3,
-              ),
-              itemCount: items.length,
-              itemBuilder: (_, i) {
-                final item = items[i];
-                final isActive = item.branchIndex == currentBranchIndex;
-                return _MasTile(
-                  item: item,
-                  isActive: isActive,
-                  onTap: () => onSelect(item.branchIndex),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MasTile extends StatelessWidget {
-  final _MasItem item;
-  final bool isActive;
-  final VoidCallback onTap;
-  const _MasTile({required this.item, required this.isActive, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        decoration: BoxDecoration(
-          color: isActive ? AppColors.accentDim : AppColors.surface2,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isActive
-                ? AppColors.accent.withValues(alpha: 0.5)
-                : AppColors.border,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              item.icon,
-              size: 22,
-              color: isActive ? AppColors.accent : AppColors.textSecondary,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              item.label,
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: isActive ? AppColors.accent : AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
+        badgeTargetBranch: badgeTargetBranch,
+        onTap: (i) => _onNavTap(rol, i),
       ),
     );
   }
@@ -442,19 +314,30 @@ class _MasTile extends StatelessWidget {
 
 // --- Floating pill bottom navigation ------------------------------------------
 
-class _OnExoticBottomNav extends StatelessWidget {
+class _OnExoticBottomNav extends ConsumerWidget {
   const _OnExoticBottomNav({
     required this.items,
     required this.currentIndex,
     required this.onTap,
+    required this.badgeTargetBranch,
   });
 
   final List<_NavItem> items;
   final int currentIndex;
   final ValueChanged<int> onTap;
 
+  /// Branch al que se le pega el badge de mensajes no leídos.
+  final int badgeTargetBranch;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // El badge se suscribe DENTRO de la nav para que cuando llegue un mensaje
+    // solo se rebuildee este subárbol — no AppShell entero (que arrastra
+    // todo el body por dentro).
+    final unreadTotal = ref.watch(totalUnreadProvider);
+    final badges = unreadTotal > 0
+        ? <int, int>{badgeTargetBranch: unreadTotal}
+        : const <int, int>{};
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     // Transparent outer shell — gives the nav its height slot in the Scaffold.
@@ -479,6 +362,11 @@ class _OnExoticBottomNav extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final itemW = constraints.maxWidth / items.length;
+                // Cuando estamos en una ruta del sheet "Más" no hay item
+                // seleccionado (currentIndex = -1) → ocultamos el pill para
+                // que ningún botón parezca activo.
+                final showPill = currentIndex >= 0;
+                final pillLeft = (currentIndex < 0 ? 0 : currentIndex) * itemW + 10;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -486,17 +374,21 @@ class _OnExoticBottomNav extends StatelessWidget {
                     AnimatedPositioned(
                       duration: const Duration(milliseconds: 260),
                       curve: Curves.easeOutCubic,
-                      left: currentIndex * itemW + 10,
+                      left: pillLeft,
                       top: 9,
                       bottom: 9,
                       width: itemW - 20,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.13),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: AppColors.accent.withValues(alpha: 0.18),
-                            width: 0.5,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 180),
+                        opacity: showPill ? 1 : 0,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: AppColors.accent.withValues(alpha: 0.13),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: AppColors.accent.withValues(alpha: 0.18),
+                              width: 0.5,
+                            ),
                           ),
                         ),
                       ),
@@ -508,6 +400,7 @@ class _OnExoticBottomNav extends StatelessWidget {
                         child: _NavButton(
                           item: items[i],
                           active: i == currentIndex,
+                          badge: badges[items[i].branchIndex] ?? 0,
                           onTap: () => onTap(i),
                         ),
                       )),
@@ -528,11 +421,13 @@ class _NavButton extends StatelessWidget {
     required this.item,
     required this.active,
     required this.onTap,
+    this.badge = 0,
   });
 
   final _NavItem item;
   final bool active;
   final VoidCallback onTap;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
@@ -543,16 +438,50 @@ class _NavButton extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            transitionBuilder: (child, anim) =>
-                ScaleTransition(scale: anim, child: child),
-            child: Icon(
-              active ? item.activeIcon : item.icon,
-              key: ValueKey(active),
-              size: 20,
-              color: color,
-            ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
+                child: Icon(
+                  active ? item.activeIcon : item.icon,
+                  key: ValueKey(active),
+                  size: 20,
+                  color: color,
+                ),
+              ),
+              if (badge > 0)
+                Positioned(
+                  top: -6,
+                  right: -10,
+                  child: Container(
+                    constraints:
+                        const BoxConstraints(minWidth: 16, minHeight: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.navBackground,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        badge > 9 ? '9+' : '$badge',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 4),
           AnimatedDefaultTextStyle(

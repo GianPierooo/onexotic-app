@@ -65,7 +65,12 @@ class OnExoticApp extends ConsumerWidget {
     AppColors.brightness =
         themeMode == ThemeMode.light ? Brightness.light : Brightness.dark;
 
+    // ValueKey forzando rebuild completo al cambiar el tema.
+    // Necesario porque AppColors usa brightness estática (no InheritedWidget),
+    // y los widgets `const` no se reconstruyen vía Theme.of(context). El
+    // GoRouter persiste en su Provider, así que la URL/ruta actual se conserva.
     return MaterialApp.router(
+      key: ValueKey('app-${themeMode.name}'),
       title: 'OnExotic',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,

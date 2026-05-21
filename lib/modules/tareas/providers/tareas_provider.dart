@@ -172,11 +172,22 @@ final toggleTareaProvider =
 
 // ─── Crear tarea ──────────────────────────────────────────────────────────────
 
+/// Resultado de creación: ok=true, o ok=false + error legible.
+class CrearTareaResultado {
+  final bool ok;
+  final String? error;
+  const CrearTareaResultado.ok() : ok = true, error = null;
+  const CrearTareaResultado.err(this.error) : ok = false;
+}
+
 class CrearTareaNotifier extends StateNotifier<AsyncValue<void>> {
   final Ref _ref;
   CrearTareaNotifier(this._ref) : super(const AsyncValue.data(null));
 
-  Future<bool> crear({
+  /// Inserta una nueva tarea en Supabase. Maneja nulls explícitamente y
+  /// devuelve un resultado con error legible si algo falla (RLS, red,
+  /// constraint, etc.) para que la UI lo muestre.
+  Future<CrearTareaResultado> crear({
     required String titulo,
     required String area,
     required String prioridad,
@@ -185,28 +196,58 @@ class CrearTareaNotifier extends StateNotifier<AsyncValue<void>> {
     String? asignadoA,
     String? imagenUrl,
   }) async {
+    final tituloLimpio = titulo.trim();
+    if (tituloLimpio.isEmpty) {
+      return const CrearTareaResultado.err('Falta el título de la tarea');
+    }
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      return const CrearTareaResultado.err(
+          'Tu sesión expiró. Vuelve a iniciar sesión.');
+    }
+
+    // Construye el payload SOLO con los campos que tienen valor real.
+    // Campos opcionales (descripcion, fecha_limite, asignado_a, imagen_url)
+    // se omiten si son null/vacíos para evitar enviar empty strings al INSERT.
+    final desc = descripcion?.trim();
+    final asign = asignadoA?.trim();
+    final img = imagenUrl?.trim();
+
+    final payload = <String, dynamic>{
+      'titulo': tituloLimpio,
+      'area': area,
+      'prioridad': prioridad,
+      'completado': false,
+    };
+    if (desc != null && desc.isNotEmpty) payload['descripcion'] = desc;
+    if (asign != null && asign.isNotEmpty) payload['asignado_a'] = asign;
+    if (img != null && img.isNotEmpty) payload['imagen_url'] = img;
+    if (fechaLimite != null) {
+      payload['fecha_limite'] =
+          '${fechaLimite.year}-${fechaLimite.month.toString().padLeft(2, '0')}-${fechaLimite.day.toString().padLeft(2, '0')}';
+    }
+
     state = const AsyncValue.loading();
     try {
-      await Supabase.instance.client.from('tareas').insert({
-        'titulo': titulo.trim(),
-        if (descripcion != null && descripcion.trim().isNotEmpty)
-          'descripcion': descripcion.trim(),
-        'area': area,
-        'prioridad': prioridad,
-        if (asignadoA != null) 'asignado_a': asignadoA,
-        'completado': false,
-        if (fechaLimite != null)
-          'fecha_limite':
-              '${fechaLimite.year}-${fechaLimite.month.toString().padLeft(2, '0')}-${fechaLimite.day.toString().padLeft(2, '0')}',
-        if (imagenUrl != null) 'imagen_url': imagenUrl,
-      });
+      await Supabase.instance.client.from('tareas').insert(payload);
       _ref.invalidate(tareasProvider);
       state = const AsyncValue.data(null);
-      return true;
+      return const CrearTareaResultado.ok();
+    } on PostgrestException catch (e) {
+      if (kDebugMode) print('[crear tarea] PG ERROR: ${e.code} ${e.message}');
+      state = AsyncValue.error(e, StackTrace.current);
+      // RLS suele venir como 42501 / "new row violates row-level security"
+      if (e.code == '42501' ||
+          (e.message).toLowerCase().contains('row-level security')) {
+        return const CrearTareaResultado.err(
+            'No tienes permiso para crear tareas (solo CEO/Manager).');
+      }
+      return CrearTareaResultado.err(e.message);
     } catch (e) {
       if (kDebugMode) print('[crear tarea] ERROR: $e');
       state = AsyncValue.error(e, StackTrace.current);
-      return false;
+      return CrearTareaResultado.err(e.toString());
     }
   }
 }

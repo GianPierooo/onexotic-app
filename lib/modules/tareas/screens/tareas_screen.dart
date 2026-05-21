@@ -240,27 +240,65 @@ class _CreateTareaSheetState extends ConsumerState<_CreateTareaSheet> {
 
   Future<void> _crear() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _uploadingImage = true);
+    // Guarda referencia al messenger ANTES del await — si el sheet se cierra,
+    // su context se invalida pero el root messenger sigue siendo válido.
+    final messenger = ScaffoldMessenger.of(context);
+
     String? imagenUrl;
     if (_imagenBytes != null) {
-      imagenUrl = await uploadImagenTarea(bytes: _imagenBytes!, ext: _imagenExt);
+      setState(() => _uploadingImage = true);
+      imagenUrl =
+          await uploadImagenTarea(bytes: _imagenBytes!, ext: _imagenExt);
+      if (mounted) setState(() => _uploadingImage = false);
+      if (imagenUrl == null) {
+        messenger.showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.error,
+            content: Text(
+              'No se pudo subir la imagen. Intenta de nuevo o quítala.',
+              style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
+            ),
+          ),
+        );
+        return;
+      }
     }
-    setState(() => _uploadingImage = false);
 
-    final ok = await ref.read(crearTareaProvider.notifier).crear(
+    final descTrim = _descripcionCtrl.text.trim();
+    final result = await ref.read(crearTareaProvider.notifier).crear(
           titulo: _tituloCtrl.text,
           area: _area,
           prioridad: _prioridad,
           asignadoA: _asignadoA,
-          descripcion: _descripcionCtrl.text.trim().isNotEmpty
-              ? _descripcionCtrl.text.trim()
-              : null,
+          descripcion: descTrim.isEmpty ? null : descTrim,
           fechaLimite: _fechaLimite,
           imagenUrl: imagenUrl,
         );
-    if (ok && mounted) {
+
+    if (!mounted) return;
+    if (result.ok) {
       widget.onCreated?.call();
       Navigator.of(context).pop();
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.success.withValues(alpha: 0.95),
+          content: Text(
+            'Tarea creada',
+            style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
+          ),
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
+          content: Text(
+            result.error ?? 'No se pudo crear la tarea',
+            style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
+          ),
+        ),
+      );
     }
   }
 

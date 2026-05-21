@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/onboarding/guia_bottom_sheet.dart';
 import '../../../shared/onboarding/guias_content.dart';
+import '../../chat/providers/chat_provider.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
 import '../providers/equipo_provider.dart';
 import '../providers/presence_provider.dart';
@@ -23,6 +24,8 @@ class EquipoScreen extends ConsumerWidget {
     final equipoAsync = ref.watch(equipoProvider);
     final userAsync = ref.watch(currentUserProvider);
     final onlineIds = ref.watch(onlineUserIdsProvider).valueOrNull ?? {};
+    final unreadByUser =
+        ref.watch(unreadCountsByUserProvider).valueOrNull ?? const {};
     final currentUserId =
         Supabase.instance.client.auth.currentUser?.id ?? '';
 
@@ -162,9 +165,15 @@ class EquipoScreen extends ConsumerWidget {
                           key: ValueKey(miembros[i].usuario.id),
                           stats: miembros[i],
                           isOnline: onlineIds.contains(miembros[i].usuario.id),
+                          unreadCount:
+                              unreadByUser[miembros[i].usuario.id] ?? 0,
                           onTap: () => context.push(
                             '/equipo/perfil',
                             extra: miembros[i],
+                          ),
+                          onChatTap: () => context.push(
+                            '/equipo/chat',
+                            extra: miembros[i].usuario,
                           ),
                         ),
                         childCount: miembros.length,

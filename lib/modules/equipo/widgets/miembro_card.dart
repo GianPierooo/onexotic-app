@@ -11,9 +11,18 @@ import 'rol_badge.dart';
 class MiembroCard extends StatelessWidget {
   final UsuarioConStats stats;
   final VoidCallback? onTap;
+  final VoidCallback? onChatTap;
   final bool? isOnline;
+  final int unreadCount;
 
-  const MiembroCard({super.key, required this.stats, this.onTap, this.isOnline});
+  const MiembroCard({
+    super.key,
+    required this.stats,
+    this.onTap,
+    this.onChatTap,
+    this.isOnline,
+    this.unreadCount = 0,
+  });
 
   static const _meses = [
     'ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN',
@@ -148,11 +157,17 @@ class MiembroCard extends StatelessWidget {
                     ),
                   ),
 
-                  Icon(
-                    Icons.more_horiz_rounded,
-                    size: 18,
-                    color: AppColors.textTertiary,
-                  ),
+                  if (!isCurrentUser && onChatTap != null)
+                    _ChatIconButton(
+                      unread: unreadCount,
+                      onTap: onChatTap!,
+                    )
+                  else
+                    Icon(
+                      Icons.more_horiz_rounded,
+                      size: 18,
+                      color: AppColors.textTertiary,
+                    ),
                 ],
               ),
 
@@ -186,6 +201,78 @@ class MiembroCard extends StatelessWidget {
           color: color,
           letterSpacing: -0.3,
         ),
+      ),
+    );
+  }
+}
+
+// ─── Botón ícono de chat con badge de no leídos ────────────────────────────
+
+class _ChatIconButton extends StatelessWidget {
+  final int unread;
+  final VoidCallback onTap;
+  const _ChatIconButton({required this.unread, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: unread > 0
+                  ? AppColors.accent.withValues(alpha: 0.14)
+                  : AppColors.surface2,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: unread > 0
+                    ? AppColors.accent.withValues(alpha: 0.4)
+                    : AppColors.border,
+                width: 0.5,
+              ),
+            ),
+            child: Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 16,
+              color: unread > 0
+                  ? AppColors.accent
+                  : AppColors.textSecondary,
+            ),
+          ),
+          if (unread > 0)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.accent,
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(
+                    color: AppColors.surface,
+                    width: 1.5,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    unread > 9 ? '9+' : '$unread',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
