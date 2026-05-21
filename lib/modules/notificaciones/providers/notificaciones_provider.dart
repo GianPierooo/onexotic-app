@@ -1,4 +1,6 @@
-﻿import 'package:flutter/foundation.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -150,9 +152,14 @@ final notificacionesStreamProvider =
         if (kDebugMode) print('[notif stream] emit: ${result.length} items');
         return result;
       })
-      .handleError((Object e) {
-        if (kDebugMode) print('[notif stream] error ignorado: $e');
-      });
+      .transform(
+        StreamTransformer<List<Notificacion>, List<Notificacion>>.fromHandlers(
+          handleError: (e, st, sink) {
+            if (kDebugMode) print('[notif stream] error → emitiendo []: $e');
+            sink.add(const []);
+          },
+        ),
+      );
 });
 
 // --- Badge sin leer -----------------------------------------------------------

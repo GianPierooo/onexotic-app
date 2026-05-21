@@ -25,6 +25,7 @@ class NotificacionItem extends ConsumerWidget {
         'tarea' => Icons.checklist_rounded,
         'inventario' => Icons.inventory_2_outlined,
         'bono' => Icons.monetization_on_outlined,
+        'chat' => Icons.chat_bubble_outline_rounded,
         _ => Icons.notifications_outlined,
       };
 
@@ -34,6 +35,7 @@ class NotificacionItem extends ConsumerWidget {
         'tarea' => AppColors.accent,
         'inventario' => AppColors.error,
         'bono' => const Color(0xFFF59E0B),
+        'chat' => AppColors.success,
         _ => AppColors.textSecondary,
       };
 

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/app_config.dart';
+import 'pending_route_notifier.dart';
 
 // ─── Background handler (debe ser función top-level, no un método de clase) ───
 // Se invoca cuando llega un push con la app cerrada o en segundo plano.
@@ -53,12 +54,37 @@ class FcmService {
       // (notificacionesStreamProvider ya escucha inserts en la tabla).
     });
 
-    // Handler para cuando el usuario toca la notificación del sistema
+    // Handler para cuando el usuario toca la notificación del sistema con la
+    // app en background. Mapea el tipo a una ruta y la deposita en
+    // pendingRouteNotifier — AppShell lo consume cuando el router esté listo.
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       if (kDebugMode) print('[FCM tap] tipo=${message.data["tipo"]}');
-      // TODO: navegar a la pantalla correspondiente según message.data["tipo"]
+      final ruta = _routeForTipo(message.data["tipo"] as String?);
+      if (ruta != null) pendingRouteNotifier.value = ruta;
     });
+
+    // Cold start: si la app fue abierta tocando un push estando terminada,
+    // FirebaseMessaging guarda ese mensaje en getInitialMessage(). No llega
+    // por el listener de onMessageOpenedApp.
+    final initialMsg = await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMsg != null) {
+      if (kDebugMode) print('[FCM cold-start] tipo=${initialMsg.data["tipo"]}');
+      final ruta = _routeForTipo(initialMsg.data["tipo"] as String?);
+      if (ruta != null) pendingRouteNotifier.value = ruta;
+    }
   }
+
+  /// Mapea el campo `tipo` del payload data a la ruta destino dentro de la app.
+  /// Devuelve null para tipos que no requieren navegación (ej. 'sistema').
+  static String? _routeForTipo(String? tipo) => switch (tipo) {
+        'disenio'    => '/disenios',
+        'tarea'      => '/tareas',
+        'inventario' => '/inventario',
+        'asistencia' => '/asistencia',
+        'bono'       => '/equipo',
+        'chat'       => '/equipo',
+        _            => null,
+      };
 
   /// Obtiene el FCM token y lo persiste en tabla users.fcm_token.
   static Future<void> saveToken() async {

@@ -15,7 +15,9 @@ class NotificacionesScreen extends ConsumerWidget {
     ('todas',      'Todas'),
     ('disenio',    'Diseños'),
     ('tarea',      'Tareas'),
+    ('chat',       'Chat'),
     ('inventario', 'Inventario'),
+    ('asistencia', 'Asistencia'),
     ('sistema',    'Sistema'),
   ];
 
@@ -42,6 +44,7 @@ class NotificacionesScreen extends ConsumerWidget {
       'inventario' => '/inventario',
       'asistencia' => '/asistencia',
       'bono'       => '/equipo',
+      'chat'       => '/equipo',
       _            => null,
     };
     if (ruta != null) context.go(ruta);

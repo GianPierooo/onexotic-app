@@ -31,6 +31,7 @@ import '../../modules/login/screens/login_screen.dart';
 import '../../modules/tareas/models/tarea.dart';
 import '../../modules/tareas/screens/tarea_detail_screen.dart';
 import '../../modules/tareas/screens/tareas_screen.dart';
+import '../fcm/pending_route_notifier.dart';
 import '../theme/app_colors.dart';
 import 'mas_sheet.dart';
 
@@ -218,6 +219,36 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
+  @override
+  void initState() {
+    super.initState();
+    // Si FcmService ya depositó una ruta (cold start), la consumimos en cuanto
+    // el primer frame esté pintado. Después escuchamos cambios futuros.
+    if (pendingRouteNotifier.value != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _consumePendingRoute());
+    }
+    pendingRouteNotifier.addListener(_onPendingRouteChanged);
+  }
+
+  @override
+  void dispose() {
+    pendingRouteNotifier.removeListener(_onPendingRouteChanged);
+    super.dispose();
+  }
+
+  void _onPendingRouteChanged() {
+    if (pendingRouteNotifier.value == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _consumePendingRoute());
+  }
+
+  void _consumePendingRoute() {
+    final ruta = pendingRouteNotifier.value;
+    if (ruta == null) return;
+    if (!mounted) return;
+    pendingRouteNotifier.value = null;
+    context.go(ruta);
+  }
+
   // -- Nav items por rol --------------------------------------------------------
   static const _ceoNavItems = <_NavItem>[
     _NavItem(Icons.home_outlined, Icons.home_rounded, 'Inicio', 0),

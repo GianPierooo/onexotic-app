@@ -35,6 +35,10 @@ class DefaultFirebaseOptions {
   // ── Web ───────────────────────────────────────────────────────────────────────
   // Firebase Console → onexotic-49e29 → Configuración → Tus apps → App web
   // Reemplaza SOLO los valores REEMPLAZA_* — el resto ya está correcto.
+  // TODO: Reemplaza con las credenciales de Firebase Console → Configuración
+  //       del proyecto → Tus apps → Web (apiKey y appId). Sin esto FCM no
+  //       funciona en web — main.dart detecta el prefijo REEMPLAZA y omite
+  //       Firebase.initializeApp silenciosamente.
   static const FirebaseOptions web = FirebaseOptions(
     apiKey:            'REEMPLAZA_WEB_API_KEY',
     appId:             'REEMPLAZA_WEB_APP_ID',
@@ -47,6 +51,10 @@ class DefaultFirebaseOptions {
   // ── iOS ───────────────────────────────────────────────────────────────────────
   // Agrega ios/Runner/GoogleService-Info.plist desde Firebase Console,
   // luego ejecuta: flutterfire configure --project=onexotic-49e29
+  // TODO: Reemplaza con las credenciales de Firebase Console → Configuración
+  //       del proyecto → Tus apps → iOS (apiKey y appId). Sin esto FCM no
+  //       funciona en iOS — main.dart detecta el prefijo REEMPLAZA y omite
+  //       Firebase.initializeApp silenciosamente.
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey:            'REEMPLAZA_IOS_API_KEY',
     appId:             'REEMPLAZA_IOS_APP_ID',
