@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_fab.dart';
 import '../../../shared/onboarding/guia_bottom_sheet.dart';
 import '../../../shared/onboarding/guias_content.dart';
 import '../models/producto.dart';
@@ -117,13 +118,7 @@ class _InventarioScreenState extends ConsumerState<InventarioScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      floatingActionButton: FloatingActionButton(
-        onPressed: _abrirFormulario,
-        backgroundColor: AppColors.accent,
-        elevation: 0,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add_rounded, color: Colors.white, size: 26),
-      ),
+      floatingActionButton: AppFab(onPressed: _abrirFormulario),
       body: Stack(
         children: [
           const OnboardingLauncher(

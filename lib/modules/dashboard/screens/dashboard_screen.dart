@@ -9,6 +9,8 @@ import '../../../core/theme/app_typography.dart';
 import '../../../shared/onboarding/guia_bottom_sheet.dart';
 import '../../../shared/onboarding/guias_content.dart';
 import '../../../shared/widgets/avatar.dart';
+import '../../../shared/widgets/screen_header.dart';
+import '../../../shared/widgets/shimmer_box.dart';
 import '../../notificaciones/providers/notificaciones_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../widgets/acceso_rapido_ia.dart';
@@ -106,16 +108,16 @@ class DashboardScreen extends ConsumerWidget {
                         ? [
                             const _DisenoraContent(),
                             const SizedBox(height: 28),
-                            const _SectionLabel('ACCESO RAPIDO'),
+                            const SectionLabel('ACCESO RAPIDO'),
                             const SizedBox(height: 14),
                             const AccesoRapidoIA(),
                             const SizedBox(height: 8),
                           ]
                         : [
-                            const _SectionLabel('RESUMEN'),
+                            const SectionLabel('RESUMEN'),
                             const SizedBox(height: 14),
                             dataAsync.when(
-                              loading: () => const _MetricasLoading(),
+                              loading: () => const ShimmerMetricGrid(),
                               error: (e, _) => _ErrorBanner('$e'),
                               data: (data) =>
                                   _buildMetricasGrid(context, data, rol: rol),
@@ -123,7 +125,7 @@ class DashboardScreen extends ConsumerWidget {
                             const SizedBox(height: 28),
                             const ActividadRecienteList(),
                             const SizedBox(height: 28),
-                            const _SectionLabel('ACCESO RAPIDO'),
+                            const SectionLabel('ACCESO RAPIDO'),
                             const SizedBox(height: 14),
                             const AccesoRapidoIA(),
                             const SizedBox(height: 8),
@@ -310,45 +312,6 @@ class DashboardScreen extends ConsumerWidget {
 
 // ─── Widgets de soporte ────────────────────────────────────────────────────────
 
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: AppTypography.label(color: AppColors.textTertiary),
-    );
-  }
-}
-
-class _MetricasLoading extends StatelessWidget {
-  const _MetricasLoading();
-
-  Widget _card() => Expanded(
-        child: Container(
-          height: 116,
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border, width: 0.5),
-          ),
-        ),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(children: [_card(), const SizedBox(width: 12), _card()]),
-        const SizedBox(height: 12),
-        Row(children: [_card(), const SizedBox(width: 12), _card()]),
-      ],
-    );
-  }
-}
-
 class _ErrorBanner extends StatelessWidget {
   final String message;
   const _ErrorBanner(this.message);
@@ -414,13 +377,13 @@ class _DisenoraContent extends ConsumerWidget {
     final dataAsync = ref.watch(dashboardDisenoraProvider);
 
     return dataAsync.when(
-      loading: () => const _MetricasLoading(),
+      loading: () => const ShimmerMetricGrid(),
       error: (e, _) => _ErrorBanner('$e'),
       data: (data) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Stats row ──────────────────────────────────────────────────
-          const _SectionLabel('RESUMEN'),
+          const SectionLabel('RESUMEN'),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -451,7 +414,7 @@ class _DisenoraContent extends ConsumerWidget {
           // ── Próxima entrega ────────────────────────────────────────────
           if (data.proximaEntrega != null) ...[
             const SizedBox(height: 28),
-            const _SectionLabel('PRÓXIMA ENTREGA'),
+            const SectionLabel('PRÓXIMA ENTREGA'),
             const SizedBox(height: 14),
             _ProximaEntregaCard(disenio: data.proximaEntrega!),
           ],
@@ -459,20 +422,19 @@ class _DisenoraContent extends ConsumerWidget {
           // ── Diseños activos ────────────────────────────────────────────
           if (data.disenosActivos.isNotEmpty) ...[
             const SizedBox(height: 28),
-            Row(
-              children: [
-                const Expanded(child: _SectionLabel('MIS DISEÑOS ACTIVOS')),
-                GestureDetector(
-                  onTap: () => context.go('/disenios'),
-                  child: Text(
-                    'Ver todos',
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.accent,
-                        fontWeight: FontWeight.w500),
+            SectionLabel(
+              'MIS DISEÑOS ACTIVOS',
+              trailing: GestureDetector(
+                onTap: () => context.go('/disenios'),
+                child: Text(
+                  'Ver todos',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: AppColors.accent,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
+              ),
             ),
             const SizedBox(height: 14),
             ...data.disenosActivos.take(3).map(
@@ -494,7 +456,7 @@ class _DisenoraContent extends ConsumerWidget {
           // ── Briefs pendientes ──────────────────────────────────────────
           if (data.briefsPendientes.isNotEmpty) ...[
             const SizedBox(height: 28),
-            const _SectionLabel('BRIEFS PENDIENTES'),
+            const SectionLabel('BRIEFS PENDIENTES'),
             const SizedBox(height: 14),
             ...data.briefsPendientes.take(3).map(
               (d) => _DisenioMiniCard(
@@ -515,7 +477,7 @@ class _DisenoraContent extends ConsumerWidget {
           // ── Último feedback CEO ────────────────────────────────────────
           if (data.ultimoFeedback != null) ...[
             const SizedBox(height: 28),
-            const _SectionLabel('ÚLTIMO FEEDBACK'),
+            const SectionLabel('ÚLTIMO FEEDBACK'),
             const SizedBox(height: 14),
             _FeedbackCard(
               titulo: data.ultimoFeedbackTitulo ?? 'Diseño',

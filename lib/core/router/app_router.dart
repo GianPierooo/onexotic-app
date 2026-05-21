@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -438,7 +440,7 @@ class _MasTile extends StatelessWidget {
   }
 }
 
-// --- Bottom navigation bar ----------------------------------------------------
+// --- Floating pill bottom navigation ------------------------------------------
 
 class _OnExoticBottomNav extends StatelessWidget {
   const _OnExoticBottomNav({
@@ -454,27 +456,67 @@ class _OnExoticBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
+
+    // Transparent outer shell — gives the nav its height slot in the Scaffold.
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.navBackground,
-        border: Border(
-          top: BorderSide(color: AppColors.borderSubtle, width: 0.5),
-        ),
-      ),
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: SizedBox(
-        height: 64,
-        child: Row(
-          children: List.generate(items.length, (i) {
-            final active = i == currentIndex;
-            return Expanded(
-              child: _NavButton(
-                item: items[i],
-                active: active,
-                onTap: () => onTap(i),
+      color: Colors.transparent,
+      padding: EdgeInsets.fromLTRB(16, 10, 16, bottomInset + 10),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            height: 62,
+            decoration: BoxDecoration(
+              // Slight frosted tint — works for both dark and light themes.
+              color: AppColors.navBackground.withValues(alpha: 0.88),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: AppColors.borderSubtle,
+                width: 0.75,
               ),
-            );
-          }),
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final itemW = constraints.maxWidth / items.length;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // ── Animated pill indicator ──────────────────────────
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                      left: currentIndex * itemW + 10,
+                      top: 9,
+                      bottom: 9,
+                      width: itemW - 20,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.13),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: AppColors.accent.withValues(alpha: 0.18),
+                            width: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // ── Nav buttons row ──────────────────────────────────
+                    Row(
+                      children: List.generate(items.length, (i) => Expanded(
+                        child: _NavButton(
+                          item: items[i],
+                          active: i == currentIndex,
+                          onTap: () => onTap(i),
+                        ),
+                      )),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
@@ -495,26 +537,14 @@ class _NavButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = active ? AppColors.accent : AppColors.textTertiary;
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
+      behavior: HitTestBehavior.opaque,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-            height: 2,
-            width: active ? 28 : 0,
-            decoration: BoxDecoration(
-              color: AppColors.accent,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 8),
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
+            duration: const Duration(milliseconds: 200),
             transitionBuilder: (child, anim) =>
                 ScaleTransition(scale: anim, child: child),
             child: Icon(
@@ -525,14 +555,15 @@ class _NavButton extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            item.label,
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
             style: GoogleFonts.inter(
               fontSize: 10.5,
               fontWeight: active ? FontWeight.w600 : FontWeight.w500,
               color: color,
               letterSpacing: 0.2,
             ),
+            child: Text(item.label, maxLines: 1),
           ),
         ],
       ),

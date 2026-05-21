@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 
@@ -55,6 +56,67 @@ class ScreenHeader extends StatelessWidget {
             ),
           ),
           if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
+/// Etiqueta de sección con línea accent naranja · estilo OnExotic premium.
+///
+/// Reemplaza los labels de sección de texto plano tipo "RESUMEN", "ACCESO RÁPIDO".
+/// La línea naranja de 14×2px ancla la jerarquía visual sin añadir ruido.
+///
+/// Uso:
+/// ```dart
+/// SectionLabel('RESUMEN')
+/// SectionLabel('MIS DISEÑOS ACTIVOS', trailing: TextButton(...))
+/// ```
+class SectionLabel extends StatelessWidget {
+  const SectionLabel(
+    this.text, {
+    super.key,
+    this.trailing,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final String text;
+
+  /// Widget opcional a la derecha (ej: "Ver todos" TextButton).
+  final Widget? trailing;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: padding,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Línea accent naranja
+          Container(
+            width: 14,
+            height: 2,
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Texto de sección
+          Text(
+            text,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textTertiary,
+              letterSpacing: 0.9,
+            ),
+          ),
+          if (trailing != null) ...[
+            const Spacer(),
+            trailing!,
+          ],
         ],
       ),
     );

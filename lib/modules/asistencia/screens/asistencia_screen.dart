@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_fab.dart';
 import '../../../shared/onboarding/guia_bottom_sheet.dart';
 import '../../../shared/onboarding/guias_content.dart';
 import '../providers/asistencia_provider.dart';
@@ -56,14 +57,7 @@ class AsistenciaScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       floatingActionButton: _esCeo()
-          ? FloatingActionButton(
-              onPressed: () => _abrirCrearReunion(context),
-              backgroundColor: AppColors.accent,
-              elevation: 0,
-              shape: const CircleBorder(),
-              child: const Icon(Icons.add_rounded,
-                  color: Colors.white, size: 26),
-            )
+          ? AppFab(onPressed: () => _abrirCrearReunion(context))
           : null,
       body: Stack(
         children: [

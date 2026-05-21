@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_fab.dart';
 import '../../../shared/onboarding/guia_bottom_sheet.dart';
 import '../../../shared/onboarding/guias_content.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
@@ -43,13 +44,7 @@ class DiseniosScreen extends ConsumerWidget {
       child: Scaffold(
         backgroundColor: AppColors.background,
         floatingActionButton: (isCeo || isDisenadora)
-            ? FloatingActionButton(
-                onPressed: () => context.push('/disenios/nuevo-brief'),
-                backgroundColor: AppColors.accent,
-                elevation: 0,
-                shape: const CircleBorder(),
-                child: const Icon(Icons.add_rounded, color: Colors.white),
-              )
+            ? AppFab(onPressed: () => context.push('/disenios/nuevo-brief'))
             : null,
         body: Stack(
           children: [

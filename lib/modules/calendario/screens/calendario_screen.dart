@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_fab.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
 import '../providers/calendario_provider.dart';
 import '../widgets/leyenda_colores.dart';
@@ -48,13 +49,7 @@ class CalendarioScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       floatingActionButton: isCeo
-          ? FloatingActionButton(
-              onPressed: () => _abrirNuevoEvento(context),
-              backgroundColor: AppColors.accent,
-              elevation: 0,
-              shape: const CircleBorder(),
-              child: const Icon(Icons.add_rounded, color: Colors.white),
-            )
+          ? AppFab(onPressed: () => _abrirNuevoEvento(context))
           : null,
       body: SafeArea(
         child: Column(

@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_fab.dart';
 import '../../../shared/onboarding/guia_bottom_sheet.dart';
 import '../../../shared/onboarding/guias_content.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
@@ -34,13 +35,7 @@ class TareasScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       floatingActionButton: isAdmin
-          ? FloatingActionButton(
-              onPressed: () => _showCreateModal(context, ref),
-              backgroundColor: AppColors.accent,
-              elevation: 0,
-              shape: const CircleBorder(),
-              child: const Icon(Icons.add_rounded, color: Colors.white),
-            )
+          ? AppFab(onPressed: () => _showCreateModal(context, ref))
           : null,
       body: Stack(
         children: [

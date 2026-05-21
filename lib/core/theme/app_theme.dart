@@ -94,9 +94,8 @@ class AppTheme {
           highlightElevation: 0,
           focusElevation: 0,
           hoverElevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(radiusLg)),
-          ),
+          shape: CircleBorder(),
+          // Glow naranja se aplica via DecoratedBox en AppShell
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
@@ -233,9 +232,7 @@ class AppTheme {
           backgroundColor: AppColors.accent,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(radiusLg)),
-          ),
+          shape: CircleBorder(),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
