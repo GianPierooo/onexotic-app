@@ -7,6 +7,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Inserta en tabla `notificaciones` y llama a la Edge Function `send-notification`
 /// de forma fire-and-forget (no bloquea si el push falla).
+///
+/// CRÍTICO: NO usar `.select()` en el INSERT — Postgres aplica la SELECT
+/// policy a `RETURNING`. Como el destinatario (user_id) es DISTINTO al
+/// auth.uid() del remitente, la visibility check rechaza el row y el INSERT
+/// entero falla con `42501: row-level security`. Sin RETURNING el INSERT
+/// pasa solo por WITH CHECK (auth.uid() IS NOT NULL) y se persiste.
 Future<void> pushNotif({
   required String userId,
   required String titulo,
@@ -16,23 +22,20 @@ Future<void> pushNotif({
 }) async {
   final client = Supabase.instance.client;
   try {
-    // 1. Persistir la notificación en BD
-    final row = await client
-        .from('notificaciones')
-        .insert({
-          'user_id': userId,
-          'titulo': titulo,
-          'mensaje': mensaje,
-          'tipo': tipo,
-          'leido': false,
-          if (referenciaId != null) 'referencia_id': referenciaId,
-        })
-        .select('id')
-        .maybeSingle();
+    // 1. Persistir la notificación en BD (sin RETURNING).
+    await client.from('notificaciones').insert({
+      'user_id': userId,
+      'titulo': titulo,
+      'mensaje': mensaje,
+      'tipo': tipo,
+      'leido': false,
+      if (referenciaId != null) 'referencia_id': referenciaId,
+    });
+    if (kDebugMode) print('[pushNotif] in-app OK → $userId ($tipo)');
 
-    final notifId = row?['id'] as String?;
-
-    // 2. Push via Edge Function (fire-and-forget)
+    // 2. Push via Edge Function (fire-and-forget). Si el destinatario no
+    // tiene fcm_token, la función devuelve {sent:false, reason:"sin_token"}
+    // y el push se omite — la notificación in-app igual quedó persistida.
     client.functions
         .invoke(
           'send-notification',
@@ -41,11 +44,14 @@ Future<void> pushNotif({
             'titulo': titulo,
             'mensaje': mensaje,
             'tipo': tipo,
-            if (notifId != null) 'notification_id': notifId,
           },
         )
-        .then((_) { if (kDebugMode) print('[push] enviado a $userId'); })
-        .catchError((e) { if (kDebugMode) print('[push] ERROR: $e'); });
+        .then((res) {
+          if (kDebugMode) print('[pushNotif] FCM resp: ${res.data}');
+        })
+        .catchError((e) {
+          if (kDebugMode) print('[pushNotif] FCM ERROR: $e');
+        });
   } catch (e) {
     if (kDebugMode) print('[pushNotif] ERROR: $e');
   }

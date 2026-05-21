@@ -1,4 +1,6 @@
-﻿import 'package:flutter/foundation.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -43,6 +45,12 @@ Future<void> main() async {
       await Firebase.initializeApp(options: opts);
       await FcmService.init();
       FcmService.listenTokenRefresh();
+      // Si el usuario YA está logueado (sesión cacheada), guarda su FCM token
+      // ahora. Sin esto, los usuarios nunca actualizan el token excepto al
+      // hacer login fresh — lo que impide recibir push.
+      if (Supabase.instance.client.auth.currentUser != null) {
+        unawaited(FcmService.saveToken());
+      }
     }
   } catch (e) {
     if (kDebugMode) print('[Firebase] no inicializado: $e');
