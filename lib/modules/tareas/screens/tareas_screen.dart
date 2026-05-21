@@ -155,17 +155,17 @@ class TareasScreen extends ConsumerWidget {
   }
 
   void _showCreateModal(BuildContext context, WidgetRef ref) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) return;
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) => _CreateTareaSheet(
-          onCreated: () => ref.invalidate(tareasProvider),
-        ),
-      );
-    });
+    // SIN addPostFrameCallback (problema conocido: no dispara si no hay
+    // frame agendado). El tap mismo agenda el frame del showModalBottomSheet.
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _CreateTareaSheet(
+        onCreated: () => ref.invalidate(tareasProvider),
+      ),
+    );
   }
 }
 
@@ -190,6 +190,10 @@ class _CreateTareaSheetState extends ConsumerState<_CreateTareaSheet> {
   Uint8List? _imagenBytes;
   String _imagenExt = 'jpg';
   bool _uploadingImage = false;
+
+  /// Error visible INLINE en el sheet (no SnackBar — el SnackBar queda atrás
+  /// del bottom sheet y el usuario nunca lo ve).
+  String? _errorMsg;
 
   static const _areas = [
     'tech', 'disenio', 'marketing', 'produccion', 'rrhh', 'legal',
@@ -239,66 +243,81 @@ class _CreateTareaSheetState extends ConsumerState<_CreateTareaSheet> {
   }
 
   Future<void> _crear() async {
-    if (!_formKey.currentState!.validate()) return;
-    // Guarda referencia al messenger ANTES del await — si el sheet se cierra,
-    // su context se invalida pero el root messenger sigue siendo válido.
+    debugPrint('[crear tarea] tap "Crear tarea" — iniciando submit');
+    setState(() => _errorMsg = null);
+
+    if (!_formKey.currentState!.validate()) {
+      debugPrint('[crear tarea] validación de formulario falló');
+      setState(() => _errorMsg = 'Completa los campos requeridos');
+      return;
+    }
+
     final messenger = ScaffoldMessenger.of(context);
 
     String? imagenUrl;
     if (_imagenBytes != null) {
+      debugPrint('[crear tarea] subiendo imagen (${_imagenBytes!.length} bytes)');
       setState(() => _uploadingImage = true);
-      imagenUrl =
-          await uploadImagenTarea(bytes: _imagenBytes!, ext: _imagenExt);
+      try {
+        imagenUrl =
+            await uploadImagenTarea(bytes: _imagenBytes!, ext: _imagenExt);
+      } catch (e, st) {
+        debugPrint('[crear tarea] EXCEPCIÓN subiendo imagen: $e');
+        debugPrint('$st');
+      }
       if (mounted) setState(() => _uploadingImage = false);
       if (imagenUrl == null) {
+        debugPrint('[crear tarea] upload imagen devolvió null');
+        setState(() => _errorMsg =
+            'No se pudo subir la imagen. Intenta de nuevo o quítala.');
+        return;
+      }
+      debugPrint('[crear tarea] imagen subida OK: $imagenUrl');
+    }
+
+    final descTrim = _descripcionCtrl.text.trim();
+    debugPrint(
+        '[crear tarea] enviando: titulo=${_tituloCtrl.text.trim()} '
+        'area=$_area prioridad=$_prioridad '
+        'asignado=$_asignadoA fecha=$_fechaLimite '
+        'desc=${descTrim.isEmpty ? 'null' : '${descTrim.length} chars'} '
+        'img=${imagenUrl != null}');
+
+    try {
+      final result = await ref.read(crearTareaProvider.notifier).crear(
+            titulo: _tituloCtrl.text,
+            area: _area,
+            prioridad: _prioridad,
+            asignadoA: _asignadoA,
+            descripcion: descTrim.isEmpty ? null : descTrim,
+            fechaLimite: _fechaLimite,
+            imagenUrl: imagenUrl,
+          );
+
+      if (!mounted) return;
+      if (result.ok) {
+        debugPrint('[crear tarea] OK — cerrando sheet');
+        widget.onCreated?.call();
+        Navigator.of(context).pop();
         messenger.showSnackBar(
           SnackBar(
-            backgroundColor: AppColors.error,
+            backgroundColor: AppColors.success.withValues(alpha: 0.95),
             content: Text(
-              'No se pudo subir la imagen. Intenta de nuevo o quítala.',
+              'Tarea creada',
               style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
             ),
           ),
         );
-        return;
+      } else {
+        debugPrint('[crear tarea] FALLÓ: ${result.error}');
+        setState(() => _errorMsg = result.error ?? 'No se pudo crear la tarea');
       }
-    }
-
-    final descTrim = _descripcionCtrl.text.trim();
-    final result = await ref.read(crearTareaProvider.notifier).crear(
-          titulo: _tituloCtrl.text,
-          area: _area,
-          prioridad: _prioridad,
-          asignadoA: _asignadoA,
-          descripcion: descTrim.isEmpty ? null : descTrim,
-          fechaLimite: _fechaLimite,
-          imagenUrl: imagenUrl,
-        );
-
-    if (!mounted) return;
-    if (result.ok) {
-      widget.onCreated?.call();
-      Navigator.of(context).pop();
-      messenger.showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.success.withValues(alpha: 0.95),
-          content: Text(
-            'Tarea creada',
-            style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
-          ),
-        ),
-      );
-    } else {
-      messenger.showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.error,
-          duration: const Duration(seconds: 4),
-          content: Text(
-            result.error ?? 'No se pudo crear la tarea',
-            style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
-          ),
-        ),
-      );
+    } catch (e, st) {
+      // Cinturón y tirantes: aunque el provider ya captura PostgrestException
+      // y errores genéricos, si algo raro escapa lo mostramos igual.
+      debugPrint('[crear tarea] EXCEPCIÓN NO CAPTURADA: $e');
+      debugPrint('$st');
+      if (mounted) setState(() => _errorMsg = 'Error: $e');
     }
   }
 
@@ -310,6 +329,11 @@ class _CreateTareaSheetState extends ConsumerState<_CreateTareaSheet> {
 
     return Container(
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      constraints: BoxConstraints(
+        // Limita a 90% del alto disponible para que el contenido siempre
+        // tenga espacio al botón "Crear tarea" aunque el teclado esté abierto.
+        maxHeight: MediaQuery.of(context).size.height * 0.92,
+      ),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -317,7 +341,8 @@ class _CreateTareaSheetState extends ConsumerState<_CreateTareaSheet> {
       padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottom),
       child: Form(
         key: _formKey,
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -331,7 +356,52 @@ class _CreateTareaSheetState extends ConsumerState<_CreateTareaSheet> {
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // Banner de error visible — el SnackBar queda detrás del sheet
+            // (mismo eje vertical inferior), así que mostramos el error aquí
+            // adentro del modal para que el usuario lo vea sí o sí.
+            if (_errorMsg != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.error.withValues(alpha: 0.35),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.error_outline_rounded,
+                        size: 16, color: AppColors.error),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _errorMsg!,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.error,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() => _errorMsg = null),
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: 8),
+                        child: Icon(Icons.close_rounded,
+                            size: 14, color: AppColors.error),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
             // Título
             TextFormField(
@@ -751,6 +821,7 @@ class _CreateTareaSheetState extends ConsumerState<_CreateTareaSheet> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );
