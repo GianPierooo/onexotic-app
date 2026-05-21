@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/app_colors.dart';
 
@@ -10,7 +11,8 @@ class MasMenuItem {
   final IconData icon;
   final String label;
   final String route;
-  const MasMenuItem(this.icon, this.label, this.route);
+  final bool ceoOnly;
+  const MasMenuItem(this.icon, this.label, this.route, {this.ceoOnly = false});
 }
 
 const _masItems = <MasMenuItem>[
@@ -18,9 +20,20 @@ const _masItems = <MasMenuItem>[
   MasMenuItem(Icons.check_box_rounded, 'Tareas', '/tareas'),
   MasMenuItem(Icons.calendar_month_rounded, 'Calendario', '/calendario'),
   MasMenuItem(Icons.notifications_rounded, 'Notificaciones', '/notificaciones'),
+  MasMenuItem(Icons.bar_chart_rounded, 'Analíticas', '/analiticas', ceoOnly: true),
+  MasMenuItem(Icons.business_outlined, 'Proveedores', '/proveedores', ceoOnly: true),
   MasMenuItem(Icons.person_rounded, 'Perfil', '/perfil'),
   MasMenuItem(Icons.auto_awesome_rounded, 'IA Asistente', '/ai'),
 ];
+
+/// Filtra los items según el rol del usuario actual. Los items ceoOnly
+/// solo aparecen para roles 'ceo' o 'manager'.
+List<MasMenuItem> _visibleItems() {
+  final rol = Supabase.instance.client.auth.currentUser
+      ?.userMetadata?['rol'] as String?;
+  final esCeo = rol == 'ceo' || rol == 'manager';
+  return _masItems.where((i) => !i.ceoOnly || esCeo).toList();
+}
 
 // ─── Estado global del sheet ─────────────────────────────────────────────────
 //
@@ -203,24 +216,28 @@ class _SheetBody extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 1.3,
-              ),
-              itemCount: _masItems.length,
-              itemBuilder: (_, i) {
-                final item = _masItems[i];
-                return _MasTile(
-                  item: item,
-                  onTap: () => onSelect(item.route),
-                );
-              },
-            ),
+            Builder(builder: (_) {
+              final items = _visibleItems();
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 1.3,
+                ),
+                itemCount: items.length,
+                itemBuilder: (_, i) {
+                  final item = items[i];
+                  return _MasTile(
+                    item: item,
+                    onTap: () => onSelect(item.route),
+                  );
+                },
+              );
+            }),
           ],
         ),
       ),

@@ -24,8 +24,10 @@ import '../../modules/equipo/screens/equipo_screen.dart';
 import '../../modules/equipo/screens/perfil_miembro_screen.dart';
 import '../../modules/inventario/models/producto.dart';
 import '../../modules/ai_asistente/screens/ai_screen.dart';
+import '../../modules/analiticas/screens/analiticas_screen.dart';
 import '../../modules/notificaciones/screens/notificaciones_screen.dart';
 import '../../modules/perfil/screens/perfil_screen.dart';
+import '../../modules/proveedores/screens/proveedores_screen.dart';
 import '../../modules/inventario/screens/inventario_screen.dart';
 import '../../modules/inventario/screens/producto_detail_screen.dart';
 import '../../modules/login/screens/login_screen.dart';
@@ -53,6 +55,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         final rol = Supabase.instance.client.auth.currentUser
             ?.userMetadata?['rol'] as String?;
         if (rol == 'disenadora') return '/dashboard';
+      }
+
+      // Analíticas y Proveedores son exclusivos para CEO/Manager.
+      if (loc.startsWith('/analiticas') || loc.startsWith('/proveedores')) {
+        final rol = Supabase.instance.client.auth.currentUser
+            ?.userMetadata?['rol'] as String?;
+        if (rol != 'ceo' && rol != 'manager') return '/dashboard';
       }
 
       return null;
@@ -203,6 +212,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   },
                 ),
               ],
+            ),
+          ]),
+          // 11 · Analíticas (solo CEO)
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/analiticas',
+              builder: (_, __) => const AnaliticasScreen(),
+            ),
+          ]),
+          // 12 · Proveedores (solo CEO)
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/proveedores',
+              builder: (_, __) => const ProveedoresScreen(),
             ),
           ]),
         ],
