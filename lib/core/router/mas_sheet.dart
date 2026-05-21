@@ -22,55 +22,167 @@ const _masItems = <MasMenuItem>[
   MasMenuItem(Icons.auto_awesome_rounded, 'IA Asistente', '/ai'),
 ];
 
-/// Muestra el sheet "Más" de manera SIEMPRE inmediata, sin importar la ruta
-/// actual. Usa el root navigator para que aparezca por encima del bottom nav.
+// ─── Estado global del sheet ─────────────────────────────────────────────────
+//
+// Usamos un OverlayEntry insertado en el root Overlay. Esto evita TODO
+// problema con:
+// - addPostFrameCallback que no dispara si no hay frame agendado.
+// - showModalBottomSheet que comparte estado con el Navigator de la branch.
+// - El selectedIndex del bottom nav que está en -1 cuando se está en una
+//   ruta abierta desde el propio "Más".
+//
+// El sheet vive en su propio overlay, completamente independiente del
+// sistema de routing. Se puede abrir SIEMPRE, en cualquier ruta.
+
+OverlayEntry? _currentEntry;
+
+/// Abre el sheet "Más" instantáneamente. Sin importar la ruta actual.
+/// Si el sheet ya estaba abierto, no hace nada (evita doble inserción).
 void mostrarMasSheet(BuildContext context) {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!context.mounted) return;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useRootNavigator: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => const MasSheet(),
-    );
-  });
+  if (_currentEntry != null) return;
+  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  if (overlay == null) return;
+
+  late OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (_) => MasSheetOverlay(
+      onClose: () => _removeEntry(entry),
+    ),
+  );
+  _currentEntry = entry;
+  overlay.insert(entry);
 }
 
-/// Bottom sheet del menú "Más". Es un StatefulWidget independiente del shell
-/// para que abrir/cerrar el sheet no dispare ningún rebuild en el nav.
-class MasSheet extends StatefulWidget {
-  const MasSheet({super.key});
+void _removeEntry(OverlayEntry entry) {
+  if (entry.mounted) entry.remove();
+  if (_currentEntry == entry) _currentEntry = null;
+}
+
+// ─── Overlay del sheet ───────────────────────────────────────────────────────
+
+class MasSheetOverlay extends StatefulWidget {
+  final VoidCallback onClose;
+  const MasSheetOverlay({super.key, required this.onClose});
 
   @override
-  State<MasSheet> createState() => _MasSheetState();
+  State<MasSheetOverlay> createState() => _MasSheetOverlayState();
 }
 
-class _MasSheetState extends State<MasSheet> {
-  void _abrir(BuildContext context, String route) {
+class _MasSheetOverlayState extends State<MasSheetOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _slide;
+  late final Animation<double> _fade;
+
+  bool _closing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+      reverseDuration: const Duration(milliseconds: 200),
+    );
+    _slide = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _cerrar() async {
+    if (_closing) return;
+    _closing = true;
+    await _ctrl.reverse();
+    widget.onClose();
+  }
+
+  Future<void> _seleccionar(String route) async {
+    if (_closing) return;
+    _closing = true;
     HapticFeedback.selectionClick();
-    Navigator.of(context, rootNavigator: true).pop();
-    // El sheet usa rootNavigator, así que volvemos al shell antes de navegar.
-    // El go() vive en el ShellRoute, así llega al branch correcto.
-    Future.microtask(() {
-      if (!context.mounted) return;
-      context.go(route);
-    });
+    // Guarda referencia al GoRouter ANTES de la animación; el contexto del
+    // overlay no participa del árbol de navegación, así que vamos vía la
+    // instancia global de GoRouter desde el primer NavigatorContext disponible.
+    final router = GoRouter.maybeOf(context);
+    await _ctrl.reverse();
+    widget.onClose();
+    router?.go(route);
   }
 
   @override
   Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          // Scrim — tap fuera del sheet cierra.
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _cerrar,
+              behavior: HitTestBehavior.opaque,
+              child: FadeTransition(
+                opacity: _fade,
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.55),
+                ),
+              ),
+            ),
+          ),
+
+          // Sheet
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: AnimatedBuilder(
+              animation: _slide,
+              builder: (_, child) {
+                return FractionalTranslation(
+                  translation: Offset(0, 1 - _slide.value),
+                  child: child,
+                );
+              },
+              child: _SheetBody(
+                onSelect: _seleccionar,
+                onClose: _cerrar,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Contenido visual del sheet ──────────────────────────────────────────────
+
+class _SheetBody extends StatelessWidget {
+  final void Function(String route) onSelect;
+  final VoidCallback onClose;
+
+  const _SheetBody({required this.onSelect, required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
     return SafeArea(
-      child: Padding(
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          border: Border.all(color: AppColors.border, width: 0.5),
+        ),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Drag handle
             Center(
               child: Container(
                 width: 36,
@@ -105,7 +217,7 @@ class _MasSheetState extends State<MasSheet> {
                 final item = _masItems[i];
                 return _MasTile(
                   item: item,
-                  onTap: () => _abrir(context, item.route),
+                  onTap: () => onSelect(item.route),
                 );
               },
             ),
