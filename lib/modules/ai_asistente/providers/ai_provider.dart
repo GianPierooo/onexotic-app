@@ -9,12 +9,16 @@ class MensajeChat {
   final String texto;
   final bool esUsuario;
   final DateTime timestamp;
+  // Solo lo usa el modo Asistente (imágenes adjuntas por el CEO).
+  // El modo chat informativo nunca las setea.
+  final List<String> imagenesUrls;
 
   const MensajeChat({
     required this.id,
     required this.texto,
     required this.esUsuario,
     required this.timestamp,
+    this.imagenesUrls = const [],
   });
 }
 

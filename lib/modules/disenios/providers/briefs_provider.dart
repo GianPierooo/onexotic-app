@@ -61,6 +61,9 @@ class CrearBriefNotifier extends StateNotifier<AsyncValue<void>> {
     String? tipografia,
     String? notasAdicionales,
     List<({Uint8List bytes, String ext})> imagenes = const [],
+    // URLs públicas ya subidas (p.ej. desde el chat del asistente IA).
+    // Si vienen, se usan directo en vez de re-subir.
+    List<String> referenciasUrlsExistentes = const [],
   }) async {
     state = const AsyncValue.loading();
     final client = Supabase.instance.client;
@@ -78,8 +81,8 @@ class CrearBriefNotifier extends StateNotifier<AsyncValue<void>> {
 
       final disenioId = disenioRes['id'] as String;
 
-      // Subir imágenes de referencia
-      final referenciasUrls = <String>[];
+      // Subir imágenes de referencia + sumar las URLs ya subidas
+      final referenciasUrls = <String>[...referenciasUrlsExistentes];
       for (int i = 0; i < imagenes.length; i++) {
         try {
           final img = imagenes[i];

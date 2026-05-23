@@ -33,36 +33,42 @@ class _UserBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tieneImagenes = mensaje.imagenesUrls.isNotEmpty;
+    final tieneTexto = mensaje.texto.trim().isNotEmpty &&
+        mensaje.texto != '(imagen adjunta)';
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16, left: 52),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.22),
-              border: Border.all(
-                color: AppColors.accent.withValues(alpha: 0.38),
-                width: 0.5,
+          if (tieneImagenes) _galeriaImagenes(mensaje.imagenesUrls),
+          if (tieneImagenes && tieneTexto) const SizedBox(height: 6),
+          if (tieneTexto)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.22),
+                border: Border.all(
+                  color: AppColors.accent.withValues(alpha: 0.38),
+                  width: 0.5,
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(4),
+                ),
               ),
-              // Asimétrico: 20 20 4 20 (esquina pegada al hablante)
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(4),
+              child: Text(
+                mensaje.texto,
+                style: GoogleFonts.inter(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  height: 1.45,
+                ),
               ),
             ),
-            child: Text(
-              mensaje.texto,
-              style: GoogleFonts.inter(
-                color: AppColors.textPrimary,
-                fontSize: 14,
-                height: 1.45,
-              ),
-            ),
-          ),
           const SizedBox(height: 4),
           Padding(
             padding: const EdgeInsets.only(right: 6),
@@ -79,6 +85,76 @@ class _UserBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Grid de miniaturas de imágenes adjuntas en un mensaje del usuario.
+/// Compacto, máx 3 columnas; al tocar abre la imagen en un dialog full-screen.
+Widget _galeriaImagenes(List<String> urls) {
+  final cantidad = urls.length;
+  if (cantidad == 0) return const SizedBox.shrink();
+  // Hasta 3 miniaturas por fila, mismo tamaño cuadrado.
+  return ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 220),
+    child: Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      alignment: WrapAlignment.end,
+      children: urls.map((url) {
+        return Builder(builder: (context) {
+          return GestureDetector(
+            onTap: () => _abrirImagenFull(context, url),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 70,
+                height: 70,
+                color: AppColors.surface2,
+                child: Image.network(
+                  url,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Icon(
+                    Icons.broken_image_outlined,
+                    color: AppColors.textTertiary,
+                    size: 22,
+                  ),
+                  loadingBuilder: (context, child, loading) {
+                    if (loading == null) return child;
+                    return Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.6,
+                          color: AppColors.textTertiary,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+        });
+      }).toList(),
+    ),
+  );
+}
+
+void _abrirImagenFull(BuildContext context, String url) {
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.92),
+    builder: (_) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(16),
+      child: GestureDetector(
+        onTap: () => Navigator.pop(_),
+        child: InteractiveViewer(
+          child: Image.network(url, fit: BoxFit.contain),
+        ),
+      ),
+    ),
+  );
 }
 
 class _AIBubble extends StatelessWidget {

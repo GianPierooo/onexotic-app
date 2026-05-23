@@ -1,12 +1,17 @@
-// Provider del Modo Asistente — IA con tool calling.
+// Provider del Modo Asistente — IA con tool calling y soporte de imágenes.
 //
-// Diferente al ai_provider (chat informativo):
-//  · Edge function ai-asistente devuelve `tipo: 'texto'` o `tipo: 'tool_call'`.
-//  · Las acciones (crear_tarea, crear_evento, crear_brief) se ejecutan
-//    CLIENT-SIDE llamando a los providers existentes — así se reutiliza
-//    la lógica de notificaciones FCM, invalidación de caches y manejo de
-//    errores que ya está testeada.
-//  · crear_brief requiere confirmación previa del CEO. Las otras van directo.
+// Flujo:
+//  1. CEO envía mensaje (con o sin imágenes adjuntas).
+//  2. Si hay imágenes, se suben a Supabase Storage (bucket 'referencias',
+//     path 'chat/{userId}/{ts}_{i}.{ext}') ANTES de invocar la edge function.
+//  3. La edge function recibe imagenes_urls y arma contenido multimodal
+//     para gpt-4o-mini (vision).
+//  4. Si devuelve tool_call, las acciones SIEMPRE pasan por la burbuja de
+//     confirmación con resumen — doble check después del resumen textual
+//     que ya dio la IA.
+//  5. Al ejecutar crear_brief, se usan las imagenesUrls acumuladas en el
+//     historial del usuario como referencias_urls del brief.
+
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -18,28 +23,45 @@ import '../../disenios/providers/briefs_provider.dart';
 import '../../tareas/providers/tareas_provider.dart';
 import 'ai_provider.dart' show MensajeChat;
 
+// ─── Imagen adjunta (antes de subir) ───────────────────────────────────────────
+
+class ImagenAdjunta {
+  final Uint8List bytes;
+  final String ext; // jpg, png, webp...
+  final String nombre;
+  const ImagenAdjunta({
+    required this.bytes,
+    required this.ext,
+    required this.nombre,
+  });
+}
+
 // ─── Confirmación pendiente ────────────────────────────────────────────────────
 
 class ConfirmacionPendiente {
-  final String mensajeId; // id del mensaje bubble que muestra la confirmación
+  final String mensajeId;
   final String tool;
   final Map<String, dynamic> args;
   final String resumen;
+  // URLs de imágenes que vienen del turno actual (devueltas por la edge).
+  final List<String> imagenesUrlsTurno;
 
   const ConfirmacionPendiente({
     required this.mensajeId,
     required this.tool,
     required this.args,
     required this.resumen,
+    this.imagenesUrlsTurno = const [],
   });
 }
 
-// ─── Estado del asistente ──────────────────────────────────────────────────────
+// ─── Estado ───────────────────────────────────────────────────────────────────
 
 class AiAsistenteState {
   final List<MensajeChat> mensajes;
   final bool isTyping;
   final bool isEjecutando;
+  final bool isSubiendo; // subiendo imágenes adjuntas
   final ConfirmacionPendiente? pendiente;
   final String? error;
 
@@ -47,6 +69,7 @@ class AiAsistenteState {
     this.mensajes = const [],
     this.isTyping = false,
     this.isEjecutando = false,
+    this.isSubiendo = false,
     this.pendiente,
     this.error,
   });
@@ -55,6 +78,7 @@ class AiAsistenteState {
     List<MensajeChat>? mensajes,
     bool? isTyping,
     bool? isEjecutando,
+    bool? isSubiendo,
     ConfirmacionPendiente? pendiente,
     bool clearPendiente = false,
     String? error,
@@ -64,6 +88,7 @@ class AiAsistenteState {
       mensajes: mensajes ?? this.mensajes,
       isTyping: isTyping ?? this.isTyping,
       isEjecutando: isEjecutando ?? this.isEjecutando,
+      isSubiendo: isSubiendo ?? this.isSubiendo,
       pendiente: clearPendiente ? null : (pendiente ?? this.pendiente),
       error: clearError ? null : (error ?? this.error),
     );
@@ -78,11 +103,48 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
 
   String _nuevoId() => DateTime.now().microsecondsSinceEpoch.toString();
 
-  Future<void> enviar(String texto) async {
+  Future<void> enviar(
+    String texto, {
+    List<ImagenAdjunta> imagenes = const [],
+  }) async {
     final t = texto.trim();
-    if (t.isEmpty) return;
+    if (t.isEmpty && imagenes.isEmpty) return;
 
-    // Historial reciente para que la IA mantenga contexto.
+    // 1. Subir imágenes a Storage primero (si las hay)
+    state = state.copyWith(
+      clearError: true,
+      clearPendiente: true,
+      isSubiendo: imagenes.isNotEmpty,
+    );
+
+    List<String> imagenesUrls = const [];
+    if (imagenes.isNotEmpty) {
+      try {
+        imagenesUrls = await _subirImagenes(imagenes);
+      } catch (e) {
+        if (kDebugMode) print('[ai-asistente] subir imágenes ERROR: $e');
+        state = state.copyWith(
+          isSubiendo: false,
+          error: 'No se pudieron subir las imágenes.',
+        );
+        return;
+      }
+      state = state.copyWith(isSubiendo: false);
+    }
+
+    // 2. Armar mensaje del usuario en el historial local (con URLs adjuntas)
+    final mensajeBody = t.isEmpty ? '(imagen adjunta)' : t;
+    final msgUser = MensajeChat(
+      id: _nuevoId(),
+      texto: mensajeBody,
+      esUsuario: true,
+      timestamp: DateTime.now(),
+      imagenesUrls: imagenesUrls,
+    );
+
+    // 3. Historial reciente para que la IA mantenga contexto.
+    //    No le pasamos las imágenes del historial — solo las del turno actual,
+    //    para no inflar tokens (cada imagen en el contexto cuesta caro).
     final prev = state.mensajes.length > 6
         ? state.mensajes.sublist(state.mensajes.length - 6)
         : List<MensajeChat>.from(state.mensajes);
@@ -93,26 +155,18 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
             })
         .toList();
 
-    final msgUser = MensajeChat(
-      id: _nuevoId(),
-      texto: t,
-      esUsuario: true,
-      timestamp: DateTime.now(),
-    );
-
     state = state.copyWith(
       mensajes: [...state.mensajes, msgUser],
       isTyping: true,
-      clearError: true,
-      clearPendiente: true, // cancela cualquier confirmación pendiente
     );
 
     try {
       final response = await Supabase.instance.client.functions.invoke(
         'ai-asistente',
         body: {
-          'mensaje': t,
+          'mensaje': mensajeBody,
           'historial': historial,
+          'imagenes_urls': imagenesUrls,
         },
       );
 
@@ -128,7 +182,6 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
         return;
       }
 
-      // Texto plano: pregunta de aclaración o respuesta conversacional.
       final respuesta =
           data['respuesta'] as String? ?? 'No tengo esa información.';
       _agregarMensajeIA(respuesta);
@@ -142,23 +195,28 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
     }
   }
 
+  // ── Tool call handling ────────────────────────────────────────────────────
+
   Future<void> _procesarToolCall(Map data) async {
     final tool = data['tool'] as String? ?? '';
     final args = Map<String, dynamic>.from(data['args'] as Map? ?? {});
-    final requiere = data['requiere_confirmacion'] as bool? ?? false;
+    final requiere = data['requiere_confirmacion'] as bool? ?? true;
     final resumen = data['resumen'] as String? ?? '';
+    final imagenesTurno = (data['imagenes_urls'] as List?)
+            ?.map((e) => e.toString())
+            .where((s) => s.isNotEmpty)
+            .toList() ??
+        const <String>[];
 
     if (requiere) {
-      // Burbuja de confirmación: dejamos al CEO decidir.
       final mensajeId = _nuevoId();
       final pendiente = ConfirmacionPendiente(
         mensajeId: mensajeId,
         tool: tool,
         args: args,
         resumen: resumen,
+        imagenesUrlsTurno: imagenesTurno,
       );
-      // Añadimos un mensaje "marcador" en el historial para que la lista
-      // sepa dónde renderizar la burbuja de confirmación.
       final placeholder = MensajeChat(
         id: mensajeId,
         texto: '__pendiente_confirmacion__',
@@ -173,22 +231,18 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
       return;
     }
 
-    // Ejecución directa (crear_tarea, crear_evento).
+    // Por ahora todas requieren confirmación, pero dejamos esto por si cambia.
     state = state.copyWith(isTyping: false, isEjecutando: true);
-    final res = await _ejecutarTool(tool, args);
+    final res = await _ejecutarTool(tool, args, imagenesTurno);
     state = state.copyWith(isEjecutando: false);
-    if (res.ok) {
-      _agregarMensajeIA(res.mensaje);
-    } else {
-      _agregarMensajeIA('No pude completar la acción: ${res.mensaje}');
-    }
+    _agregarMensajeIA(
+        res.ok ? res.mensaje : 'No pude completar la acción: ${res.mensaje}');
   }
 
   Future<void> confirmar() async {
     final p = state.pendiente;
     if (p == null) return;
 
-    // Quitamos la burbuja de confirmación del historial.
     final sinPlaceholder =
         state.mensajes.where((m) => m.id != p.mensajeId).toList();
     state = state.copyWith(
@@ -197,13 +251,10 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
       isEjecutando: true,
     );
 
-    final res = await _ejecutarTool(p.tool, p.args);
+    final res = await _ejecutarTool(p.tool, p.args, p.imagenesUrlsTurno);
     state = state.copyWith(isEjecutando: false);
-    if (res.ok) {
-      _agregarMensajeIA(res.mensaje);
-    } else {
-      _agregarMensajeIA('No pude completar la acción: ${res.mensaje}');
-    }
+    _agregarMensajeIA(
+        res.ok ? res.mensaje : 'No pude completar la acción: ${res.mensaje}');
   }
 
   void cancelar() {
@@ -222,10 +273,38 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
     state = const AiAsistenteState();
   }
 
-  // ── Ejecutores de tools ────────────────────────────────────────────────────
+  // ── Storage helper ────────────────────────────────────────────────────────
+
+  Future<List<String>> _subirImagenes(List<ImagenAdjunta> imagenes) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id ?? 'anon';
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final urls = <String>[];
+    for (int i = 0; i < imagenes.length; i++) {
+      final img = imagenes[i];
+      // Bucket 'referencias' ya existe (lo usa briefs). Path bajo /chat/.
+      final path = 'chat/$userId/${ts}_$i.${img.ext}';
+      await Supabase.instance.client.storage.from('referencias').uploadBinary(
+            path,
+            img.bytes,
+            fileOptions: FileOptions(
+              contentType: 'image/${img.ext == "jpg" ? "jpeg" : img.ext}',
+              upsert: false,
+            ),
+          );
+      urls.add(Supabase.instance.client.storage
+          .from('referencias')
+          .getPublicUrl(path));
+    }
+    return urls;
+  }
+
+  // ── Ejecutores de tools ───────────────────────────────────────────────────
 
   Future<_ToolResult> _ejecutarTool(
-      String tool, Map<String, dynamic> args) async {
+    String tool,
+    Map<String, dynamic> args,
+    List<String> imagenesTurno,
+  ) async {
     try {
       switch (tool) {
         case 'crear_tarea':
@@ -233,7 +312,7 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
         case 'crear_evento':
           return await _toolCrearEvento(args);
         case 'crear_brief':
-          return await _toolCrearBrief(args);
+          return await _toolCrearBrief(args, imagenesTurno);
         default:
           return _ToolResult.err('Acción no soportada ($tool).');
       }
@@ -246,12 +325,15 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
   Future<_ToolResult> _toolCrearTarea(Map<String, dynamic> args) async {
     final titulo = args['titulo'] as String?;
     final area = args['area'] as String?;
-    final prioridad = args['prioridad'] as String? ?? 'media';
+    final prioridad = args['prioridad'] as String?;
     if (titulo == null || titulo.trim().isEmpty) {
       return const _ToolResult.err('falta título');
     }
     if (area == null || area.isEmpty) {
       return const _ToolResult.err('falta área');
+    }
+    if (prioridad == null || prioridad.isEmpty) {
+      return const _ToolResult.err('falta prioridad');
     }
 
     final fechaStr = args['fecha_limite'] as String?;
@@ -268,24 +350,22 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
           asignadoA: args['asignado_a_id'] as String?,
           fechaLimite: fecha,
         );
-
     if (!res.ok) return _ToolResult.err(res.error ?? 'error desconocido');
 
-    // Buscar nombre del asignado para el mensaje de confirmación.
     String? nombreAsignado;
     final asignadoId = args['asignado_a_id'] as String?;
     if (asignadoId != null && asignadoId.isNotEmpty) {
       nombreAsignado = await _buscarNombreUsuario(asignadoId);
     }
 
-    final partes = <String>['Listo, creé la tarea "$titulo"'];
+    final partes = <String>['Listo, creé la tarea «$titulo»'];
     if (nombreAsignado != null) partes.add('asignada a $nombreAsignado');
     if (fecha != null) partes.add('con fecha límite ${_fechaLegible(fecha)}');
     return _ToolResult.ok('${partes.join(' ')}.');
   }
 
   Future<_ToolResult> _toolCrearEvento(Map<String, dynamic> args) async {
-    final tipo = args['tipo'] as String? ?? 'Evento';
+    final tipo = args['tipo'] as String? ?? 'evento_especial';
     final titulo = args['titulo'] as String?;
     final fechaStr = args['fecha'] as String?;
     if (titulo == null || titulo.trim().isEmpty) {
@@ -310,13 +390,13 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
     }
 
     final ok = await _ref.read(crearEventoProvider.notifier).crear(
-          tipo: tipo,
+          tipo: _mapearTipoEvento(tipo),
           titulo: titulo,
           fecha: fecha,
           hora: hora,
           lugar: args['lugar'] as String?,
           descripcion: args['descripcion'] as String?,
-          colorHex: '#FF4500',
+          colorHex: _colorPorTipo(tipo),
         );
     if (!ok) return const _ToolResult.err('no se pudo crear el evento');
 
@@ -324,10 +404,13 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
         ? ' a las ${hora.hour.toString().padLeft(2, '0')}:${hora.minute.toString().padLeft(2, '0')}'
         : '';
     return _ToolResult.ok(
-        'Listo, agregué "$titulo" al calendario para ${_fechaLegible(fecha)}$horaTxt.');
+        'Listo, agregué «$titulo» al calendario para ${_fechaLegible(fecha)}$horaTxt.');
   }
 
-  Future<_ToolResult> _toolCrearBrief(Map<String, dynamic> args) async {
+  Future<_ToolResult> _toolCrearBrief(
+    Map<String, dynamic> args,
+    List<String> imagenesTurno,
+  ) async {
     final titulo = args['titulo'] as String?;
     final dropId = args['drop_id'] as String?;
     final descripcion = args['descripcion'] as String?;
@@ -353,18 +436,35 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
             .toList() ??
         const <String>[];
 
+    // Reunir referencias: las del turno actual + todas las acumuladas en
+    // mensajes anteriores del usuario. Permite que el CEO adjunte imágenes
+    // en un turno y la IA decida crear el brief en otro turno posterior.
+    final urlsHistorial = state.mensajes
+        .where((m) => m.esUsuario)
+        .expand((m) => m.imagenesUrls)
+        .toList();
+    final usarImgs = args['usar_imagenes_adjuntas'] as bool? ?? false;
+    final referenciasUrls = usarImgs
+        ? <String>{...urlsHistorial, ...imagenesTurno}.toList()
+        : const <String>[];
+
     final ok = await _ref.read(crearBriefProvider.notifier).crear(
           titulo: titulo,
           dropId: dropId,
           descripcion: descripcion,
           fechaLimite: fecha,
           colores: colores,
+          tipografia: args['tipografia'] as String?,
           notasAdicionales: args['notas'] as String?,
+          referenciasUrlsExistentes: referenciasUrls,
         );
     if (!ok) return const _ToolResult.err('no se pudo crear el brief');
 
+    final extra = referenciasUrls.isNotEmpty
+        ? ' con ${referenciasUrls.length} ${referenciasUrls.length == 1 ? "referencia" : "referencias"} visuales'
+        : '';
     return _ToolResult.ok(
-        'Listo, creé el brief "$titulo" con entrega el ${_fechaLegible(fecha)}.');
+        'Listo, creé el brief «$titulo»$extra con entrega el ${_fechaLegible(fecha)}.');
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -396,6 +496,25 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
       isTyping: false,
     );
   }
+
+  // Convierte el enum interno al string que el módulo calendario espera mostrar.
+  String _mapearTipoEvento(String tipo) => switch (tipo) {
+        'reunion' => 'Reunión de equipo',
+        'lanzamiento_drop' => 'Lanzamiento de drop',
+        'fecha_limite_disenio' => 'Fecha límite de diseño',
+        'fecha_limite_tarea' => 'Fecha límite de tarea',
+        'evento_especial' => 'Evento',
+        _ => 'Evento',
+      };
+
+  String _colorPorTipo(String tipo) => switch (tipo) {
+        'reunion' => '#3B82F6',
+        'lanzamiento_drop' => '#FF4500',
+        'fecha_limite_disenio' => '#8B5CF6',
+        'fecha_limite_tarea' => '#F59E0B',
+        'evento_especial' => '#A78BFA',
+        _ => '#FF4500',
+      };
 
   String _fechaLegible(DateTime d) {
     const meses = [

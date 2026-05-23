@@ -1,17 +1,14 @@
 // Edge function ai-asistente — Modo Asistente IA (solo CEO/manager).
 //
-// Diferente a ai-chat:
-//  · Soporta tool calling (function calling) con OpenAI.
-//  · Devuelve { tipo: 'texto' } o { tipo: 'tool_call', tool, args,
-//    requiere_confirmacion, resumen }.
-//  · El cliente Flutter ejecuta la acción contra los providers existentes
-//    (reusa notificaciones FCM, invalidaciones de cache, etc.).
-//  · Validación estricta de rol: 403 si no es ceo/manager.
-//
-// El system prompt incluye:
-//  · Lista de usuarios activos (id, nombre, rol) para resolver "Roma" → uuid.
-//  · Lista de drops (id, nombre) para asociar briefs.
-//  · Fecha actual (Lima) para resolver "viernes" → YYYY-MM-DD.
+// Cambios vs versión anterior:
+//  · System prompt MUCHO más estricto: la IA debe preguntar parámetros
+//    faltantes uno a la vez antes de invocar herramientas, NO inferir.
+//  · TODAS las tools (crear_tarea, crear_evento, crear_brief) requieren
+//    confirmación previa via burbuja en el cliente (doble check después
+//    del resumen textual que la IA da).
+//  · Soporte de visión: el body puede incluir `imagenes_urls` (array de
+//    URLs públicas de Supabase Storage). Se convierten en contenido
+//    multimodal (image_url) para gpt-4o-mini, que soporta visión.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -35,11 +32,11 @@ const tools = [
     function: {
       name: "crear_tarea",
       description:
-        "Crea una nueva tarea en el sistema. Se ejecuta DIRECTO sin confirmación.",
+        "Crea una tarea. SOLO invocar cuando se hayan recopilado y confirmado todos los datos con el usuario.",
       parameters: {
         type: "object",
         properties: {
-          titulo: { type: "string", description: "Título breve de la tarea" },
+          titulo: { type: "string" },
           descripcion: { type: "string" },
           area: {
             type: "string",
@@ -49,11 +46,12 @@ const tools = [
           asignado_a_id: {
             type: "string",
             description:
-              "UUID exacto del usuario a quien se asigna (de la lista de usuarios del contexto). Omitir si nadie específico.",
+              "UUID exacto del usuario asignado (de la lista del contexto). Omitir si el CEO explícitamente dijo 'sin asignar'.",
           },
           fecha_limite: {
             type: "string",
-            description: "Fecha YYYY-MM-DD. Omitir si no se especificó.",
+            description:
+              "YYYY-MM-DD. Omitir si el CEO explícitamente dijo 'sin fecha'.",
           },
         },
         required: ["titulo", "area", "prioridad"],
@@ -65,20 +63,26 @@ const tools = [
     function: {
       name: "crear_evento",
       description:
-        "Crea un evento en el calendario. Se ejecuta DIRECTO sin confirmación.",
+        "Crea un evento de calendario. SOLO invocar cuando se hayan recopilado y confirmado todos los datos con el usuario.",
       parameters: {
         type: "object",
         properties: {
           tipo: {
             type: "string",
-            description:
-              "Tipo libre: 'Reunión de equipo', 'Cumpleaños', 'Sesión de fotos', etc.",
+            enum: [
+              "reunion",
+              "lanzamiento_drop",
+              "fecha_limite_disenio",
+              "fecha_limite_tarea",
+              "evento_especial",
+            ],
           },
           titulo: { type: "string" },
           fecha: { type: "string", description: "YYYY-MM-DD" },
           hora: {
             type: "string",
-            description: "HH:MM en formato 24h. Omitir si no hay hora fija.",
+            description:
+              "HH:MM en 24h. Omitir si el CEO explícitamente dijo 'sin hora'.",
           },
           lugar: { type: "string" },
           descripcion: { type: "string" },
@@ -92,7 +96,7 @@ const tools = [
     function: {
       name: "crear_brief",
       description:
-        "Crea un brief de diseño con su entrada de diseño asociada. Requiere CONFIRMACIÓN del CEO antes de ejecutar.",
+        "Crea un brief de diseño. SOLO invocar cuando se hayan recopilado y confirmado todos los datos con el usuario.",
       parameters: {
         type: "object",
         properties: {
@@ -105,10 +109,17 @@ const tools = [
           colores: {
             type: "array",
             items: { type: "string" },
-            description: "Códigos hex de colores, ej. ['#FF4500', '#000000']",
+            description:
+              "Códigos hex, ej. ['#FF4500']. Omitir si el CEO dijo 'sin colores'.",
           },
+          tipografia: { type: "string" },
           fecha_limite: { type: "string", description: "YYYY-MM-DD" },
           notas: { type: "string" },
+          usar_imagenes_adjuntas: {
+            type: "boolean",
+            description:
+              "true si las imágenes adjuntas al chat deben quedar como referencias del brief.",
+          },
         },
         required: ["titulo", "drop_id", "descripcion", "fecha_limite"],
       },
@@ -116,15 +127,20 @@ const tools = [
   },
 ];
 
-// crear_brief es el único que pide confirmación previa.
-const TOOLS_QUE_REQUIEREN_CONFIRMACION = new Set(["crear_brief"]);
+// Todas las tools de creación pasan por confirmación en el cliente.
+const TOOLS_QUE_REQUIEREN_CONFIRMACION = new Set([
+  "crear_tarea",
+  "crear_evento",
+  "crear_brief",
+]);
 
-// ─── Builder del resumen humano para confirmaciones ───────────────────────────
+// ─── Resumen humano para la burbuja de confirmación ───────────────────────────
 
 function resumenAccion(
   tool: string,
   args: Record<string, unknown>,
-  catalogo: Record<string, Map<string, string>>
+  catalogo: Record<string, Map<string, string>>,
+  imagenesCount: number
 ): string {
   if (tool === "crear_tarea") {
     const partes: string[] = [`Tarea: ${args.titulo}`];
@@ -133,15 +149,26 @@ function resumenAccion(
     if (args.asignado_a_id) {
       const nombre = catalogo.users.get(args.asignado_a_id as string);
       partes.push(`Asignada a: ${nombre ?? "—"}`);
+    } else {
+      partes.push("Sin asignar");
     }
-    if (args.fecha_limite) partes.push(`Fecha límite: ${args.fecha_limite}`);
-    return partes.join(" · ");
+    if (args.fecha_limite) {
+      partes.push(`Fecha límite: ${args.fecha_limite}`);
+    } else {
+      partes.push("Sin fecha límite");
+    }
+    if (args.descripcion) partes.push(`Descripción: ${args.descripcion}`);
+    return partes.join("\n");
   }
   if (tool === "crear_evento") {
-    const partes: string[] = [`${args.tipo}: ${args.titulo}`];
-    partes.push(`${args.fecha}${args.hora ? ` a las ${args.hora}` : ""}`);
+    const partes: string[] = [`Tipo: ${args.tipo}`];
+    partes.push(`Título: ${args.titulo}`);
+    partes.push(
+      `Fecha: ${args.fecha}${args.hora ? ` · Hora: ${args.hora}` : " · Sin hora"}`
+    );
     if (args.lugar) partes.push(`Lugar: ${args.lugar}`);
-    return partes.join(" · ");
+    if (args.descripcion) partes.push(`Descripción: ${args.descripcion}`);
+    return partes.join("\n");
   }
   if (tool === "crear_brief") {
     const partes: string[] = [`Brief: ${args.titulo}`];
@@ -149,11 +176,21 @@ function resumenAccion(
       const nombre = catalogo.drops.get(args.drop_id as string);
       partes.push(`Drop: ${nombre ?? "—"}`);
     }
-    if (args.fecha_limite) partes.push(`Entrega: ${args.fecha_limite}`);
-    if (Array.isArray(args.colores) && args.colores.length > 0) {
+    partes.push(`Entrega: ${args.fecha_limite}`);
+    partes.push(`Descripción: ${args.descripcion}`);
+    if (Array.isArray(args.colores) && (args.colores as string[]).length > 0) {
       partes.push(`Colores: ${(args.colores as string[]).join(", ")}`);
     }
-    return partes.join(" · ");
+    if (args.tipografia) partes.push(`Tipografía: ${args.tipografia}`);
+    if (args.notas) partes.push(`Notas: ${args.notas}`);
+    if (args.usar_imagenes_adjuntas && imagenesCount > 0) {
+      partes.push(
+        `Referencias: ${imagenesCount} ${
+          imagenesCount === 1 ? "imagen" : "imágenes"
+        } adjunta${imagenesCount === 1 ? "" : "s"}`
+      );
+    }
+    return partes.join("\n");
   }
   return tool;
 }
@@ -166,7 +203,7 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Verificar JWT
+    // 1. Auth + rol
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "No authorization" }, 401);
 
@@ -179,7 +216,6 @@ serve(async (req) => {
     } = await supabaseUser.auth.getUser();
     if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
-    // 2. Validar rol CEO/manager
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     const { data: userData } = await supabaseAdmin
       .from("users")
@@ -195,16 +231,22 @@ serve(async (req) => {
       );
     }
 
-    // 3. Parse body
-    const { mensaje, historial = [] } = await req.json();
+    // 2. Parse body
+    const {
+      mensaje,
+      historial = [],
+      imagenes_urls = [],
+    } = await req.json();
+
     if (!mensaje || typeof mensaje !== "string") {
-      return json({
-        tipo: "texto",
-        respuesta: "No entendí la solicitud.",
-      });
+      return json({ tipo: "texto", respuesta: "No entendí la solicitud." });
     }
 
-    // 4. Cargar contexto: usuarios activos + drops + fecha
+    const imagenes: string[] = Array.isArray(imagenes_urls)
+      ? imagenes_urls.filter((u) => typeof u === "string" && u.length > 0)
+      : [];
+
+    // 3. Contexto: users + drops + fecha
     const [usuariosRes, dropsRes] = await Promise.all([
       supabaseAdmin
         .from("users")
@@ -226,9 +268,6 @@ serve(async (req) => {
       dropsMap.set(d.id as string, d.nombre as string)
     );
 
-    const catalogo = { users: usuariosMap, drops: dropsMap };
-
-    // Fecha actual en Lima (UTC-5)
     const ahora = new Date();
     const limaTs = ahora.getTime() - 5 * 60 * 60 * 1000;
     const hoy = new Date(limaTs).toISOString().split("T")[0];
@@ -243,22 +282,35 @@ serve(async (req) => {
     ];
     const diaNombre = diasSemana[new Date(limaTs).getUTCDay()];
 
-    // 5. System prompt
+    // 4. System prompt
     const systemPrompt = buildSystemPrompt({
       nombre,
       hoy,
       diaNombre,
       usuarios: usuariosRes.data ?? [],
       drops: dropsRes.data ?? [],
+      hayImagenes: imagenes.length > 0,
     });
 
-    // 6. Llamar OpenAI con tool calling
+    // 5. Mensajes para OpenAI — el último mensaje del user puede ser multimodal
+    const userContent: unknown =
+      imagenes.length > 0
+        ? [
+            { type: "text", text: mensaje },
+            ...imagenes.map((url) => ({
+              type: "image_url",
+              image_url: { url },
+            })),
+          ]
+        : mensaje;
+
     const messages = [
       { role: "system", content: systemPrompt },
       ...historial.slice(-6),
-      { role: "user", content: mensaje },
+      { role: "user", content: userContent },
     ];
 
+    // 6. Llamar OpenAI
     const iaRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -267,8 +319,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        max_tokens: 400,
-        temperature: 0.3,
+        max_tokens: 500,
+        temperature: 0.2,
         messages,
         tools,
         tool_choice: "auto",
@@ -298,11 +350,17 @@ serve(async (req) => {
         tool: toolName,
         args,
         requiere_confirmacion: requiere,
-        resumen: resumenAccion(toolName, args, catalogo),
+        resumen: resumenAccion(
+          toolName,
+          args,
+          { users: usuariosMap, drops: dropsMap },
+          imagenes.length
+        ),
+        // Devolver las URLs al cliente para que las inserte en el brief.
+        imagenes_urls: imagenes,
       });
     }
 
-    // Texto plano (preguntas de aclaración, conversación general)
     const respuesta =
       message?.content?.trim() ?? "No tengo esa información disponible.";
     return json({ tipo: "texto", respuesta });
@@ -330,6 +388,7 @@ function buildSystemPrompt(ctx: {
   diaNombre: string;
   usuarios: Record<string, unknown>[];
   drops: Record<string, unknown>[];
+  hayImagenes: boolean;
 }): string {
   const usuariosTxt = ctx.usuarios
     .map((u) => `  - ${u.nombre} (${u.rol}) → id: ${u.id}`)
@@ -338,30 +397,76 @@ function buildSystemPrompt(ctx: {
     .map((d) => `  - ${d.nombre} (${d.estado}) → id: ${d.id}`)
     .join("\n");
 
-  return `Eres el Asistente de OnExotic en MODO ACCIONES. El usuario actual es ${ctx.nombre} (CEO).
+  const visionLine = ctx.hayImagenes
+    ? "El CEO adjuntó imágenes en este turno: puedes analizarlas para proponer colores, descripción y conceptos cuando sea relevante (especialmente para briefs). Si decides crear un brief, marca usar_imagenes_adjuntas=true para que queden como referencias del brief."
+    : "";
+
+  return `Eres el Asistente de OnExotic en MODO ACCIONES. El usuario actual es ${ctx.nombre} (CEO/Manager).
 
 Hoy es ${ctx.diaNombre} ${ctx.hoy} (zona horaria Lima, Perú).
 
 OnExotic es una marca peruana de ropa (gymwear, urbano, streetwear). Equipo de 4 personas. Comunicación en español.
 
-TU TRABAJO:
-- Interpretar lo que pide el CEO en lenguaje natural y ejecutar acciones reales en el sistema vía tool calling.
-- Resuelves nombres y fechas: cuando dice "Roma" buscas el UUID en la lista de usuarios; cuando dice "el viernes" calculas la próxima fecha YYYY-MM-DD; cuando dice "el drop Ñ" usas el id correspondiente.
-- Si te falta un dato OBLIGATORIO de la herramienta, NO inventes — pregunta brevemente al CEO.
-- Si te faltan datos opcionales (descripción, lugar, notas), no preguntes — omítelos.
-- Para crear_tarea, infiere el área del contexto: diseño de banner → "disenio"; arreglar bug → "tech"; campaña → "marketing"; producir prenda → "produccion"; contratar/asistencia → "rrhh"; INDECOPI/contratos → "legal".
-- Si la prioridad no se menciona, asume "media".
-- Para crear_brief el campo descripcion es obligatorio: si el CEO no lo dio, pregúntalo.
-- Si el CEO solo conversa o pregunta algo informativo (no una orden de crear), responde en texto plano breve sin invocar herramientas.
+═══════════════════════════════════════════════════════════════════════
+REGLAS ESTRICTAS — SEGUIR AL PIE DE LA LETRA
+═══════════════════════════════════════════════════════════════════════
 
-USUARIOS ACTIVOS (usa el id exacto para asignar tareas):
+1. NUNCA invoques una herramienta si te falta CUALQUIER parámetro del checklist (obligatorio U opcional importante). NO infieras, NO uses valores por defecto, NO asumas.
+
+2. Si falta información, HAZ UNA PREGUNTA BREVE y conversacional. Pregunta 1 o 2 datos a la vez como máximo, no abrumes con todo.
+
+3. Para los datos opcionales importantes (asignado_a, fecha_limite, hora, colores), TAMBIÉN pregunta — pero deja claro al usuario que puede decir "sin fecha", "sin asignar", "sin hora", etc. para omitirlos.
+
+4. Cuando ya tengas TODOS los datos del checklist completos (con valor real o explícitamente omitidos por el usuario), invoca la herramienta. El cliente mostrará un resumen final con botón de Confirmar/Cancelar al CEO; ese es el chequeo final.
+
+5. NUNCA inventes UUIDs. Para asignado_a_id usa SOLO ids exactos de la lista de USUARIOS ACTIVOS de abajo. Para drop_id usa SOLO ids exactos de la lista de DROPS. Si el usuario menciona un nombre que no está en la lista, pregúntale a qué se refiere.
+
+6. Resuelve fechas relativas: "el viernes" = próximo viernes desde hoy en formato YYYY-MM-DD. "Mañana" = ${ctx.hoy} + 1 día. "La próxima semana" → pregunta qué día exacto.
+
+7. Si el usuario solo conversa, saluda o pregunta algo informativo, responde en texto plano breve SIN invocar herramientas.
+
+═══════════════════════════════════════════════════════════════════════
+CHECKLIST POR ACCIÓN — todos estos datos antes de invocar
+═══════════════════════════════════════════════════════════════════════
+
+crear_tarea:
+  ✓ titulo (obligatorio, preguntar si falta)
+  ✓ area (obligatorio: tech, disenio, marketing, produccion, rrhh, legal — preguntar, no inferir aunque el título sugiera algo)
+  ✓ prioridad (obligatorio: alta, media, baja — preguntar)
+  ✓ asignado_a_id (opcional pero preguntar; aceptar "sin asignar")
+  ✓ fecha_limite (opcional pero preguntar; aceptar "sin fecha")
+  · descripcion (no preguntar, solo si el CEO la ofreció)
+
+crear_evento:
+  ✓ tipo (obligatorio: reunion, lanzamiento_drop, fecha_limite_disenio, fecha_limite_tarea, evento_especial — preguntar)
+  ✓ titulo (obligatorio)
+  ✓ fecha (obligatorio, YYYY-MM-DD)
+  ✓ hora (opcional pero preguntar; aceptar "sin hora")
+  · lugar (no preguntar a menos que sea reunión)
+  · descripcion (no preguntar)
+
+crear_brief:
+  ✓ titulo (obligatorio)
+  ✓ drop_id (obligatorio, preguntar a qué drop pertenece)
+  ✓ descripcion (obligatorio, preguntar si falta)
+  ✓ fecha_limite (obligatorio)
+  ✓ colores (opcional pero preguntar; aceptar "sin colores"; si hay imágenes adjuntas, puedes proponer una paleta basada en ellas)
+  · tipografia (no preguntar)
+  · notas (no preguntar)
+
+═══════════════════════════════════════════════════════════════════════
+
+${visionLine}
+
+USUARIOS ACTIVOS (id exacto para asignado_a_id):
 ${usuariosTxt || "  (sin usuarios)"}
 
-DROPS DISPONIBLES (usa el id exacto en crear_brief):
+DROPS DISPONIBLES (id exacto para drop_id):
 ${dropsTxt || "  (sin drops)"}
 
-REGLAS DE ESTILO:
-- Mensajes muy breves (1-2 líneas).
-- Solo texto plano, sin markdown, sin bullets.
-- Nunca expongas IDs ni UUIDs en tus respuestas al usuario.`;
+ESTILO:
+- Respuestas muy breves (1-2 líneas), tono profesional y amable.
+- Texto plano, sin markdown, sin emojis, sin bullets.
+- Nunca expongas IDs ni UUIDs.
+- En español neutral peruano.`;
 }

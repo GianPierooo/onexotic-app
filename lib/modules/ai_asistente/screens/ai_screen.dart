@@ -9,7 +9,7 @@ import '../../dashboard/providers/dashboard_provider.dart';
 import '../providers/ai_asistente_provider.dart';
 import '../providers/ai_provider.dart';
 import '../widgets/confirmacion_accion_bubble.dart';
-import '../widgets/input_chat.dart';
+import '../widgets/input_chat.dart' show InputChat, PickedImage;
 import '../widgets/mensaje_bubble.dart';
 import '../widgets/sugerencias_chips.dart';
 import '../widgets/typing_indicator.dart';
@@ -61,6 +61,19 @@ class _AiScreenState extends ConsumerState<AiScreen> {
     } else {
       await ref.read(aiChatProvider.notifier).enviar(texto);
     }
+    _scrollToBottom();
+  }
+
+  Future<void> _enviarConImagenes(String texto, List<PickedImage> imgs) async {
+    if (texto.trim().isEmpty && imgs.isEmpty) return;
+    _textController.clear();
+    _focusNode.requestFocus();
+    final adjuntas = imgs
+        .map((i) => ImagenAdjunta(bytes: i.bytes, ext: i.ext, nombre: i.nombre))
+        .toList();
+    await ref
+        .read(aiAsistenteProvider.notifier)
+        .enviar(texto, imagenes: adjuntas);
     _scrollToBottom();
   }
 
@@ -166,6 +179,10 @@ class _AiScreenState extends ConsumerState<AiScreen> {
         ? ref.watch(aiAsistenteProvider.select((s) => s.isTyping || s.isEjecutando))
         : ref.watch(aiChatProvider.select((s) => s.isTyping));
 
+    final isSubiendo = modo == AiModo.asistente
+        ? ref.watch(aiAsistenteProvider.select((s) => s.isSubiendo))
+        : false;
+
     final hasMessages = modo == AiModo.asistente
         ? ref.watch(aiAsistenteProvider.select((s) => s.mensajes.isNotEmpty))
         : ref.watch(aiChatProvider.select((s) => s.mensajes.isNotEmpty));
@@ -221,7 +238,11 @@ class _AiScreenState extends ConsumerState<AiScreen> {
                   controller: _textController,
                   focusNode: _focusNode,
                   isLoading: isTyping,
+                  isSubiendo: isSubiendo,
                   onSend: _enviar,
+                  // Solo en modo Asistente se permite adjuntar imágenes.
+                  onSendConImagenes:
+                      modo == AiModo.asistente ? _enviarConImagenes : null,
                   hint: modo == AiModo.asistente
                       ? 'Dile qué quieres crear…'
                       : null,
