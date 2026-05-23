@@ -42,6 +42,7 @@ class GestionarDropsNotifier extends StateNotifier<AsyncValue<void>> {
     required String nombre,
     String estado = 'planificacion',
     String? concepto,
+    DateTime? fechaLanzamiento,
   }) async {
     state = const AsyncValue.loading();
     try {
@@ -50,6 +51,9 @@ class GestionarDropsNotifier extends StateNotifier<AsyncValue<void>> {
         'estado': estado,
         if (concepto != null && concepto.trim().isNotEmpty)
           'concepto': concepto.trim(),
+        if (fechaLanzamiento != null)
+          'fecha_lanzamiento':
+              fechaLanzamiento.toIso8601String().split('T').first,
       });
       _ref.invalidate(dropsInventarioProvider);
       state = const AsyncValue.data(null);

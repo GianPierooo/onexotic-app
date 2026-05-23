@@ -23,6 +23,11 @@ class ConfirmacionAccionBubble extends StatelessWidget {
         'crear_brief' => 'Voy a crear este brief',
         'crear_tarea' => 'Voy a crear esta tarea',
         'crear_evento' => 'Voy a crear este evento',
+        'aprobar_disenio' => 'Voy a aprobar este diseño',
+        'rechazar_disenio' => 'Voy a rechazar este diseño',
+        'crear_drop' => 'Voy a crear este drop',
+        'crear_bono' => 'Voy a asignar este bono',
+        'anuncio_equipo' => 'Voy a enviar este anuncio al equipo',
         _ => 'Voy a ejecutar esta acción',
       };
 

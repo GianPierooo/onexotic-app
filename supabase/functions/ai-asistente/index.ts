@@ -125,13 +125,126 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "aprobar_disenio",
+      description:
+        "Aprueba un diseño que está en estado 'revision' o 'avance'. Notifica a la diseñadora.",
+      parameters: {
+        type: "object",
+        properties: {
+          disenio_id: {
+            type: "string",
+            description:
+              "UUID exacto del diseño (de la lista DISEÑOS PENDIENTES del contexto).",
+          },
+        },
+        required: ["disenio_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "rechazar_disenio",
+      description:
+        "Rechaza un diseño con feedback obligatorio. La diseñadora recibe el motivo por notificación.",
+      parameters: {
+        type: "object",
+        properties: {
+          disenio_id: { type: "string" },
+          feedback: {
+            type: "string",
+            description: "Motivo del rechazo. Obligatorio.",
+          },
+        },
+        required: ["disenio_id", "feedback"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crear_drop",
+      description: "Crea un drop nuevo en la línea de producción.",
+      parameters: {
+        type: "object",
+        properties: {
+          nombre: {
+            type: "string",
+            description: "Ej. 'Drop 004', 'EXOTIC1', 'Ñ'",
+          },
+          concepto: { type: "string" },
+          estado: {
+            type: "string",
+            enum: ["planificacion", "produccion", "lanzado", "agotado"],
+            description: "Por defecto 'planificacion'.",
+          },
+          fecha_lanzamiento: { type: "string", description: "YYYY-MM-DD" },
+        },
+        required: ["nombre"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crear_bono",
+      description:
+        "Asigna un bono monetario a un miembro del equipo. Se notifica al receptor.",
+      parameters: {
+        type: "object",
+        properties: {
+          user_id: {
+            type: "string",
+            description: "UUID del usuario (de la lista USUARIOS ACTIVOS).",
+          },
+          monto: {
+            type: "number",
+            description: "Monto en soles peruanos (PEN). Ej. 200, 150.50.",
+          },
+          motivo: { type: "string" },
+          periodo: {
+            type: "string",
+            description:
+              "Periodo del bono. Por defecto el trimestre actual, ej. 'Q2-2026'. Omitir si el CEO no lo dijo y se calculará automáticamente.",
+          },
+        },
+        required: ["user_id", "monto", "motivo"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "anuncio_equipo",
+      description:
+        "Envía una notificación broadcast a todos los miembros activos del equipo. Usar con cuidado, es invasivo.",
+      parameters: {
+        type: "object",
+        properties: {
+          titulo: { type: "string" },
+          mensaje: { type: "string" },
+        },
+        required: ["titulo", "mensaje"],
+      },
+    },
+  },
 ];
 
-// Todas las tools de creación pasan por confirmación en el cliente.
+// Todas las tools de acción pasan por confirmación en el cliente.
+// Las más destructivas (rechazar, anuncio) ESPECIALMENTE — el resumen
+// final es la última defensa antes de afectar al equipo.
 const TOOLS_QUE_REQUIEREN_CONFIRMACION = new Set([
   "crear_tarea",
   "crear_evento",
   "crear_brief",
+  "aprobar_disenio",
+  "rechazar_disenio",
+  "crear_drop",
+  "crear_bono",
+  "anuncio_equipo",
 ]);
 
 // ─── Resumen humano para la burbuja de confirmación ───────────────────────────
@@ -169,6 +282,34 @@ function resumenAccion(
     if (args.lugar) partes.push(`Lugar: ${args.lugar}`);
     if (args.descripcion) partes.push(`Descripción: ${args.descripcion}`);
     return partes.join("\n");
+  }
+  if (tool === "aprobar_disenio") {
+    const titulo = catalogo.disenios.get(args.disenio_id as string);
+    return `Aprobar diseño: ${titulo ?? "—"}\nLa diseñadora recibirá una notificación.`;
+  }
+  if (tool === "rechazar_disenio") {
+    const titulo = catalogo.disenios.get(args.disenio_id as string);
+    return `Rechazar diseño: ${titulo ?? "—"}\nMotivo: ${args.feedback}\nLa diseñadora recibirá el feedback.`;
+  }
+  if (tool === "crear_drop") {
+    const partes: string[] = [`Drop: ${args.nombre}`];
+    if (args.concepto) partes.push(`Concepto: ${args.concepto}`);
+    partes.push(`Estado: ${args.estado ?? "planificacion"}`);
+    if (args.fecha_lanzamiento) {
+      partes.push(`Lanzamiento: ${args.fecha_lanzamiento}`);
+    }
+    return partes.join("\n");
+  }
+  if (tool === "crear_bono") {
+    const nombre = catalogo.users.get(args.user_id as string);
+    const partes: string[] = [`Bono para: ${nombre ?? "—"}`];
+    partes.push(`Monto: S/ ${args.monto}`);
+    partes.push(`Motivo: ${args.motivo}`);
+    if (args.periodo) partes.push(`Periodo: ${args.periodo}`);
+    return partes.join("\n");
+  }
+  if (tool === "anuncio_equipo") {
+    return `Anuncio al equipo (a TODOS los miembros activos):\n\n«${args.titulo}»\n${args.mensaje}`;
   }
   if (tool === "crear_brief") {
     const partes: string[] = [`Brief: ${args.titulo}`];
@@ -246,8 +387,8 @@ serve(async (req) => {
       ? imagenes_urls.filter((u) => typeof u === "string" && u.length > 0)
       : [];
 
-    // 3. Contexto: users + drops + fecha
-    const [usuariosRes, dropsRes] = await Promise.all([
+    // 3. Contexto: users + drops + diseños pendientes + fecha
+    const [usuariosRes, dropsRes, diseniosRes] = await Promise.all([
       supabaseAdmin
         .from("users")
         .select("id, nombre, rol")
@@ -256,6 +397,11 @@ serve(async (req) => {
       supabaseAdmin
         .from("drops")
         .select("id, nombre, estado")
+        .order("created_at", { ascending: false }),
+      supabaseAdmin
+        .from("disenios")
+        .select("id, titulo, estado, disenadora_id, fecha_limite")
+        .in("estado", ["revision", "avance"])
         .order("created_at", { ascending: false }),
     ]);
 
@@ -266,6 +412,10 @@ serve(async (req) => {
     const dropsMap = new Map<string, string>();
     (dropsRes.data ?? []).forEach((d: Record<string, unknown>) =>
       dropsMap.set(d.id as string, d.nombre as string)
+    );
+    const diseniosMap = new Map<string, string>();
+    (diseniosRes.data ?? []).forEach((d: Record<string, unknown>) =>
+      diseniosMap.set(d.id as string, d.titulo as string)
     );
 
     const ahora = new Date();
@@ -289,6 +439,7 @@ serve(async (req) => {
       diaNombre,
       usuarios: usuariosRes.data ?? [],
       drops: dropsRes.data ?? [],
+      disenios: diseniosRes.data ?? [],
       hayImagenes: imagenes.length > 0,
     });
 
@@ -353,7 +504,11 @@ serve(async (req) => {
         resumen: resumenAccion(
           toolName,
           args,
-          { users: usuariosMap, drops: dropsMap },
+          {
+            users: usuariosMap,
+            drops: dropsMap,
+            disenios: diseniosMap,
+          },
           imagenes.length
         ),
         // Devolver las URLs al cliente para que las inserte en el brief.
@@ -388,6 +543,7 @@ function buildSystemPrompt(ctx: {
   diaNombre: string;
   usuarios: Record<string, unknown>[];
   drops: Record<string, unknown>[];
+  disenios: Record<string, unknown>[];
   hayImagenes: boolean;
 }): string {
   const usuariosTxt = ctx.usuarios
@@ -396,6 +552,15 @@ function buildSystemPrompt(ctx: {
   const dropsTxt = ctx.drops
     .map((d) => `  - ${d.nombre} (${d.estado}) → id: ${d.id}`)
     .join("\n");
+  const diseniosTxt = ctx.disenios.length === 0
+    ? "  (sin diseños pendientes de revisión)"
+    : ctx.disenios
+        .map((d) => {
+          const disenadora = ctx.usuarios.find((u) => u.id === d.disenadora_id);
+          const nombreD = disenadora?.nombre ?? "—";
+          return `  - "${d.titulo}" (estado: ${d.estado}, diseñadora: ${nombreD}, entrega: ${d.fecha_limite ?? "?"}) → id: ${d.id}`;
+        })
+        .join("\n");
 
   const visionLine = ctx.hayImagenes
     ? "El CEO adjuntó imágenes en este turno: puedes analizarlas para proponer colores, descripción y conceptos cuando sea relevante (especialmente para briefs). Si decides crear un brief, marca usar_imagenes_adjuntas=true para que queden como referencias del brief."
@@ -454,15 +619,43 @@ crear_brief:
   · tipografia (no preguntar)
   · notas (no preguntar)
 
+aprobar_disenio:
+  ✓ disenio_id (obligatorio; identificar de la lista DISEÑOS PENDIENTES por nombre o diseñadora)
+  Si hay ambigüedad (varios diseños similares), pregunta cuál.
+
+rechazar_disenio:
+  ✓ disenio_id (obligatorio; mismo método de identificación)
+  ✓ feedback (obligatorio; SIEMPRE preguntar al CEO el motivo concreto del rechazo si no lo dio)
+
+crear_drop:
+  ✓ nombre (obligatorio)
+  ✓ estado (preguntar; default 'planificacion' si dice 'el de siempre')
+  · concepto (no preguntar a menos que el CEO lo ofrezca)
+  · fecha_lanzamiento (preguntar; aceptar 'sin fecha')
+
+crear_bono:
+  ✓ user_id (obligatorio; identificar al beneficiario de la lista USUARIOS ACTIVOS)
+  ✓ monto (obligatorio en PEN)
+  ✓ motivo (obligatorio; si el CEO no lo dio, preguntar el porqué del bono)
+  · periodo (no preguntar; usar trimestre actual si falta)
+
+anuncio_equipo:
+  ✓ titulo (obligatorio, breve)
+  ✓ mensaje (obligatorio; preguntar si no está claro)
+  IMPORTANTE: este tool envía PUSH a todo el equipo activo. SIEMPRE confirma el contenido textual con el CEO antes de invocar.
+
 ═══════════════════════════════════════════════════════════════════════
 
 ${visionLine}
 
-USUARIOS ACTIVOS (id exacto para asignado_a_id):
+USUARIOS ACTIVOS (id exacto para asignado_a_id, user_id de bonos, etc.):
 ${usuariosTxt || "  (sin usuarios)"}
 
 DROPS DISPONIBLES (id exacto para drop_id):
 ${dropsTxt || "  (sin drops)"}
+
+DISEÑOS PENDIENTES DE APROBACIÓN (id exacto para aprobar/rechazar):
+${diseniosTxt}
 
 ESTILO:
 - Respuestas muy breves (1-2 líneas), tono profesional y amable.
