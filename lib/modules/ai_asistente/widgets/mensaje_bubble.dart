@@ -19,10 +19,23 @@ class MensajeBubble extends StatelessWidget {
     final w = mensaje.esUsuario
         ? _UserBubble(mensaje: mensaje, time: _formatTime(mensaje.timestamp))
         : _AIBubble(mensaje: mensaje, time: _formatTime(mensaje.timestamp));
-    return w
-        .animate()
-        .fadeIn(duration: 220.ms)
-        .moveY(begin: 6, end: 0, duration: 220.ms, curve: Curves.easeOut);
+    // `Animate` con key estable basada en el id del mensaje → la animación
+    // de entrada se dispara una sola vez cuando el bubble se inserta. Sin
+    // la key, cada rebuild del padre re-anima todos los bubbles y se acumula
+    // carga GPU hasta perder el contexto WebGL en Flutter web.
+    return Animate(
+      key: ValueKey('anim_${mensaje.id}'),
+      effects: [
+        FadeEffect(duration: 220.ms),
+        MoveEffect(
+          begin: const Offset(0, 6),
+          end: Offset.zero,
+          duration: 220.ms,
+          curve: Curves.easeOut,
+        ),
+      ],
+      child: w,
+    );
   }
 }
 
@@ -112,6 +125,9 @@ Widget _galeriaImagenes(List<String> urls) {
                 child: Image.network(
                   url,
                   fit: BoxFit.cover,
+                  // 70*2 = 140; limita el tamaño decodificado a GPU.
+                  cacheWidth: 140,
+                  gaplessPlayback: true,
                   errorBuilder: (_, __, ___) => Icon(
                     Icons.broken_image_outlined,
                     color: AppColors.textTertiary,
@@ -144,13 +160,25 @@ void _abrirImagenFull(BuildContext context, String url) {
   showDialog<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.92),
-    builder: (_) => Dialog(
+    builder: (dialogCtx) => Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(16),
       child: GestureDetector(
-        onTap: () => Navigator.pop(_),
+        onTap: () => Navigator.pop(dialogCtx),
         child: InteractiveViewer(
-          child: Image.network(url, fit: BoxFit.contain),
+          child: Image.network(
+            url,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Container(
+              padding: const EdgeInsets.all(24),
+              color: AppColors.surface2,
+              child: Icon(
+                Icons.broken_image_outlined,
+                color: AppColors.textTertiary,
+                size: 48,
+              ),
+            ),
+          ),
         ),
       ),
     ),

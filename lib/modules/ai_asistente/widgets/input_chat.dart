@@ -69,10 +69,24 @@ class _InputChatState extends State<InputChat> {
   Future<void> _adjuntarImagenes() async {
     try {
       final picker = ImagePicker();
-      final result = await picker.pickMultiImage(imageQuality: 85);
+      // Redimensiona en el dispositivo antes de leer bytes. Una foto de iPhone
+      // sin esto son ~4000×3000 px / 4MB → al decodificarla para preview y
+      // upload satura la GPU de Flutter web (CONTEXT_LOST_WEBGL).
+      final result = await picker.pickMultiImage(
+        imageQuality: 80,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
       if (result.isEmpty) return;
+      // Tope defensivo: con > 5 imágenes en el chat la decodificación
+      // simultánea para la galería es muy pesada.
+      const maxAdjuntas = 5;
+      final espacio = maxAdjuntas - _adjuntas.length;
+      if (espacio <= 0) return;
+      final aTomar = result.length > espacio ? result.sublist(0, espacio) : result;
+
       final picked = <PickedImage>[];
-      for (final x in result) {
+      for (final x in aTomar) {
         final bytes = await x.readAsBytes();
         final ext = (x.name.split('.').lastOrNull ?? 'jpg').toLowerCase();
         picked.add(PickedImage(
@@ -81,6 +95,7 @@ class _InputChatState extends State<InputChat> {
           nombre: x.name,
         ));
       }
+      if (!mounted) return;
       setState(() => _adjuntas.addAll(picked));
     } catch (_) {/* el usuario canceló o el picker falló */}
   }
@@ -267,7 +282,19 @@ class _InputChatState extends State<InputChat> {
                   width: 76,
                   height: 76,
                   color: AppColors.surface2,
-                  child: Image.memory(img.bytes, fit: BoxFit.cover),
+                  child: Image.memory(
+                    img.bytes,
+                    fit: BoxFit.cover,
+                    // cacheWidth limita el tamaño decodificado en GPU.
+                    // 152 = 76 * 2 (densidad retina) — suficiente y barato.
+                    cacheWidth: 152,
+                    gaplessPlayback: true,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.broken_image_outlined,
+                      color: AppColors.textTertiary,
+                      size: 22,
+                    ),
+                  ),
                 ),
               ),
               Positioned(

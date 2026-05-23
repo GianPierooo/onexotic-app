@@ -41,6 +41,9 @@ class _AiScreenState extends ConsumerState<AiScreen> {
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // mounted evita que un callback agendado se ejecute después de dispose
+      // (escenarios: usuario sale de /ai mientras la IA aún responde).
+      if (!mounted) return;
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
@@ -141,15 +144,20 @@ class _AiScreenState extends ConsumerState<AiScreen> {
   Widget build(BuildContext context) {
     final modo = ref.watch(aiModoProvider);
     final userAsync = ref.watch(currentUserProvider);
-    final rol = userAsync.valueOrNull?['rol'] ?? 'ceo';
+    final rolDinamico = userAsync.valueOrNull?['rol'];
+    final rol = rolDinamico is String ? rolDinamico : 'ceo';
     final esCeo = rol == 'ceo' || rol == 'manager';
 
-    // Si pierde el rol CEO (improbable), forzar modo chat.
-    if (!esCeo && modo == AiModo.asistente) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Si el rol cambia y el modo asistente ya no aplica, lo bajamos a chat
+    // vía ref.listen — NO desde build() para evitar agendar setState en cada
+    // rebuild (potencial loop si la condición persistía entre frames).
+    ref.listen(currentUserProvider, (prev, next) {
+      final nextRol = next.valueOrNull?['rol'];
+      final nextEsCeo = nextRol == 'ceo' || nextRol == 'manager';
+      if (!nextEsCeo && ref.read(aiModoProvider) == AiModo.asistente) {
         ref.read(aiModoProvider.notifier).state = AiModo.chat;
-      });
-    }
+      }
+    });
 
     // Listener para auto-scroll al entrar mensajes en cualquier modo.
     ref.listen<AiChatState>(aiChatProvider, (prev, next) {
@@ -171,7 +179,7 @@ class _AiScreenState extends ConsumerState<AiScreen> {
         : _ChatBody(
             scrollController: _scrollController,
             formatHora: _formatHora,
-            rol: rol as String,
+            rol: rol,
             onSugerencia: _enviar,
           );
 
@@ -233,7 +241,7 @@ class _AiScreenState extends ConsumerState<AiScreen> {
                     return _ErrorBanner(mensaje: err);
                   }),
                 if (modo == AiModo.chat)
-                  SugerenciasChips(rol: rol as String, onTap: _enviar),
+                  SugerenciasChips(rol: rol, onTap: _enviar),
                 InputChat(
                   controller: _textController,
                   focusNode: _focusNode,
@@ -295,10 +303,12 @@ class _ChatBody extends ConsumerWidget {
         if (chatState.isTyping && msgIndex == chatState.mensajes.length) {
           return const TypingIndicator();
         }
-        return MensajeBubble(mensaje: chatState.mensajes[msgIndex])
-            .animate()
-            .fadeIn(duration: 200.ms)
-            .slideY(begin: 0.08, end: 0, duration: 200.ms, curve: Curves.easeOut);
+        // Usamos el id del mensaje como key estable → flutter_animate adentro
+        // del MensajeBubble solo dispara al insertarse, no en cada rebuild.
+        // Si volvemos a envolver con .animate() aquí se acumulan animaciones
+        // y termina en CONTEXT_LOST_WEBGL en Flutter web.
+        final m = chatState.mensajes[msgIndex];
+        return MensajeBubble(key: ValueKey(m.id), mensaje: m);
       },
     );
   }
@@ -346,6 +356,7 @@ class _AsistenteBody extends ConsumerWidget {
         if (m.texto == '__pendiente_confirmacion__' &&
             s.pendiente?.mensajeId == m.id) {
           return ConfirmacionAccionBubble(
+            key: ValueKey('conf_${m.id}'),
             pendiente: s.pendiente!,
             isEjecutando: s.isEjecutando,
             onConfirmar: () =>
@@ -354,10 +365,7 @@ class _AsistenteBody extends ConsumerWidget {
                 ref.read(aiAsistenteProvider.notifier).cancelar(),
           );
         }
-        return MensajeBubble(mensaje: m)
-            .animate()
-            .fadeIn(duration: 200.ms)
-            .slideY(begin: 0.08, end: 0, duration: 200.ms, curve: Curves.easeOut);
+        return MensajeBubble(key: ValueKey(m.id), mensaje: m);
       },
     );
   }

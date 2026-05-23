@@ -108,6 +108,21 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
 
   String _nuevoId() => DateTime.now().microsecondsSinceEpoch.toString();
 
+  /// Tope blando del historial visible en chat.
+  /// Si la conversación crece sin freno (cada bubble es un widget en el
+  /// árbol + decode de imágenes si las hay), el render web pierde el
+  /// contexto WebGL. 80 mensajes es más que suficiente para una sesión
+  /// de trabajo del CEO; el historial enviado a la edge ya se limita a 6.
+  static const int _maxMensajesEnEstado = 80;
+
+  List<MensajeChat> _agregar(MensajeChat m) {
+    final base = state.mensajes.length >= _maxMensajesEnEstado
+        ? state.mensajes
+            .sublist(state.mensajes.length - _maxMensajesEnEstado + 1)
+        : state.mensajes;
+    return [...base, m];
+  }
+
   Future<void> enviar(
     String texto, {
     List<ImagenAdjunta> imagenes = const [],
@@ -161,7 +176,7 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
         .toList();
 
     state = state.copyWith(
-      mensajes: [...state.mensajes, msgUser],
+      mensajes: _agregar(msgUser),
       isTyping: true,
     );
 
@@ -203,15 +218,27 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
   // ── Tool call handling ────────────────────────────────────────────────────
 
   Future<void> _procesarToolCall(Map data) async {
-    final tool = data['tool'] as String? ?? '';
-    final args = Map<String, dynamic>.from(data['args'] as Map? ?? {});
-    final requiere = data['requiere_confirmacion'] as bool? ?? true;
-    final resumen = data['resumen'] as String? ?? '';
+    // Casting defensivo: la edge puede devolver Map<dynamic, dynamic> al
+    // pasar por JSON; si algo viene malformado preferimos un mensaje de
+    // error legible antes que crashear el árbol.
+    final tool = data['tool']?.toString() ?? '';
+    final argsRaw = data['args'];
+    final Map<String, dynamic> args = argsRaw is Map
+        ? argsRaw.map((k, v) => MapEntry(k.toString(), v))
+        : <String, dynamic>{};
+    final requiere = data['requiere_confirmacion'] == true ||
+        data['requiere_confirmacion'] == null;
+    final resumen = data['resumen']?.toString() ?? '';
     final imagenesTurno = (data['imagenes_urls'] as List?)
             ?.map((e) => e.toString())
             .where((s) => s.isNotEmpty)
             .toList() ??
         const <String>[];
+
+    if (tool.isEmpty) {
+      _agregarMensajeIA('No pude interpretar la acción. ¿Puedes repetir?');
+      return;
+    }
 
     if (requiere) {
       final mensajeId = _nuevoId();
@@ -229,7 +256,7 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
         timestamp: DateTime.now(),
       );
       state = state.copyWith(
-        mensajes: [...state.mensajes, placeholder],
+        mensajes: _agregar(placeholder),
         isTyping: false,
         pendiente: pendiente,
       );
@@ -670,15 +697,12 @@ class AiAsistenteNotifier extends StateNotifier<AiAsistenteState> {
 
   void _agregarMensajeIA(String texto) {
     state = state.copyWith(
-      mensajes: [
-        ...state.mensajes,
-        MensajeChat(
-          id: _nuevoId(),
-          texto: texto,
-          esUsuario: false,
-          timestamp: DateTime.now(),
-        ),
-      ],
+      mensajes: _agregar(MensajeChat(
+        id: _nuevoId(),
+        texto: texto,
+        esUsuario: false,
+        timestamp: DateTime.now(),
+      )),
       isTyping: false,
     );
   }
