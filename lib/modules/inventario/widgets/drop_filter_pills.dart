@@ -432,7 +432,7 @@ class _EditarDropSheetState extends ConsumerState<_EditarDropSheet> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       padding: EdgeInsets.fromLTRB(20, 20, 20, 24 + bottomPad),
       child: Form(
@@ -484,7 +484,7 @@ class _EditarDropSheetState extends ConsumerState<_EditarDropSheet> {
                       _label('Estado *'),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: _estado,
+                        initialValue: _estado,
                         dropdownColor: AppColors.surface2,
                         iconEnabledColor: AppColors.textTertiary,
                         style: GoogleFonts.inter(
@@ -688,7 +688,7 @@ class _NuevoDropSheetState extends ConsumerState<_NuevoDropSheet> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       padding: EdgeInsets.fromLTRB(20, 20, 20, 24 + bottomPad),
       child: Form(
@@ -730,7 +730,7 @@ class _NuevoDropSheetState extends ConsumerState<_NuevoDropSheet> {
             _label('Estado'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              value: _estado,
+              initialValue: _estado,
               dropdownColor: AppColors.surface2,
               iconEnabledColor: AppColors.textTertiary,
               style:

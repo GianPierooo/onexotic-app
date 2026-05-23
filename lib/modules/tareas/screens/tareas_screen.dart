@@ -336,7 +336,7 @@ class _CreateTareaSheetState extends ConsumerState<_CreateTareaSheet> {
       ),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.all(Radius.circular(16)),
+        borderRadius: const BorderRadius.all(Radius.circular(16)),
       ),
       padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottom),
       child: Form(

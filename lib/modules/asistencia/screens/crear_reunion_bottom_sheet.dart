@@ -212,7 +212,7 @@ class _CrearReunionBottomSheetState
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -253,7 +253,7 @@ class _CrearReunionBottomSheetState
                     _label('Tipo de reunión *'),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: _tipo,
+                      initialValue: _tipo,
                       dropdownColor: AppColors.surface2,
                       iconEnabledColor: AppColors.textTertiary,
                       style: GoogleFonts.inter(
@@ -510,7 +510,7 @@ class _CrearReunionBottomSheetState
                     _label('Repetición'),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: _recurrencia,
+                      initialValue: _recurrencia,
                       dropdownColor: AppColors.surface2,
                       iconEnabledColor: AppColors.textTertiary,
                       style: GoogleFonts.inter(

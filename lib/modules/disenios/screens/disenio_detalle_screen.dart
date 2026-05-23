@@ -1,5 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -119,7 +118,7 @@ class DisenioDetalleScreen extends ConsumerWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _SeccionLabel('REFERENCIAS'),
+                      const _SeccionLabel('REFERENCIAS'),
                       const SizedBox(height: 10),
                       _GaleriaHorizontal(urls: refs, isCeo: isCeo),
                       const SizedBox(height: 24),
@@ -137,7 +136,7 @@ class DisenioDetalleScreen extends ConsumerWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _SeccionLabel('AVANCES SUBIDOS'),
+                      const _SeccionLabel('AVANCES SUBIDOS'),
                       const SizedBox(height: 10),
                       _AvancesList(avances: avances, isCeo: isCeo),
                       const SizedBox(height: 24),
@@ -147,7 +146,7 @@ class DisenioDetalleScreen extends ConsumerWidget {
               ),
 
               // ── Brief ────────────────────────────────────────────────────
-              _SeccionLabel('BRIEF'),
+              const _SeccionLabel('BRIEF'),
               const SizedBox(height: 12),
               briefAsync.when(
                 loading: () => _LoadingCard(),
@@ -161,7 +160,7 @@ class DisenioDetalleScreen extends ConsumerWidget {
               const SizedBox(height: 24),
 
               // ── Acciones ─────────────────────────────────────────────────
-              _SeccionLabel('ACCIONES'),
+              const _SeccionLabel('ACCIONES'),
               const SizedBox(height: 12),
               _AccionesSection(
                 disenio: d,
@@ -173,14 +172,14 @@ class DisenioDetalleScreen extends ConsumerWidget {
 
               // ── Producción (solo cuando aprobado) ────────────────────────
               if (d.estado == 'aprobado') ...[
-                _SeccionLabel('PRODUCCIÓN'),
+                const _SeccionLabel('PRODUCCIÓN'),
                 const SizedBox(height: 12),
                 _SeccionProduccion(disenio: d, brief: brief),
                 const SizedBox(height: 24),
               ],
 
               // ── Historial ────────────────────────────────────────────────
-              _SeccionLabel('HISTORIAL'),
+              const _SeccionLabel('HISTORIAL'),
               const SizedBox(height: 12),
               historialAsync.when(
                 loading: () => _LoadingCard(),
@@ -594,7 +593,7 @@ class _AccionesCeo extends StatelessWidget {
         ),
 
       // PROCESO: diseñadora está trabajando, CEO espera el boceto.
-      'proceso' => _InfoCard(
+      'proceso' => const _InfoCard(
           msg: 'Esperando boceto / avance de la diseñadora.',
           color: AppColors.warning,
         ),
@@ -628,7 +627,7 @@ class _AccionesCeo extends StatelessWidget {
       // REVISION: diseñadora sube el diseño final.
       // CEO espera hasta que haya avances nuevos, luego aprueba.
       'revision' => avances.isEmpty
-          ? _InfoCard(
+          ? const _InfoCard(
               msg: 'Esperando diseño final de la diseñadora.',
               color: AppColors.info,
             )
@@ -658,12 +657,12 @@ class _AccionesCeo extends StatelessWidget {
             ),
 
       // RECHAZADO: CEO espera nueva versión de la diseñadora.
-      'rechazado' => _InfoCard(
+      'rechazado' => const _InfoCard(
           msg: 'Esperando nueva versión de la diseñadora.',
           color: AppColors.info,
         ),
 
-      _ => _InfoCard(msg: 'Diseño aprobado ✓', color: AppColors.success),
+      _ => const _InfoCard(msg: 'Diseño aprobado ✓', color: AppColors.success),
     };
   }
 
@@ -707,7 +706,7 @@ class _AccionesDisenadora extends StatelessWidget {
     return switch (disenio.estado) {
       // BRIEF: el brief fue enviado al CEO, diseñadora solo espera.
       // Solo el CEO puede aprobar e iniciar el proceso.
-      'brief' => _InfoCard(
+      'brief' => const _InfoCard(
           msg: 'Brief enviado al CEO. Esperando aprobación para iniciar el diseño.',
           color: AppColors.warning,
         ),
@@ -722,9 +721,9 @@ class _AccionesDisenadora extends StatelessWidget {
         ),
 
       // AVANCE: avance subido, CEO lo está revisando.
-      'avance' => _InfoCard(
+      'avance' => const _InfoCard(
           msg: 'Avance enviado. Esperando revisión y feedback del CEO.',
-          color: const Color(0xFF8B5CF6),
+          color: Color(0xFF8B5CF6),
         ),
 
       // REVISION: CEO aprobó el boceto, diseñadora sube el diseño final.
@@ -751,7 +750,7 @@ class _AccionesDisenadora extends StatelessWidget {
         ),
 
       // APROBADO: diseño aprobado, producción se encarga del resto.
-      _ => _InfoCard(
+      _ => const _InfoCard(
           msg: 'Diseño aprobado ✓ Pasa a producción.',
           color: AppColors.success,
         ),
@@ -848,7 +847,7 @@ class _SubirAvanceSheetState extends ConsumerState<_SubirAvanceSheet> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       padding: EdgeInsets.fromLTRB(20, 20, 20, 24 + bottomPad),
       child: Column(

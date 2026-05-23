@@ -113,7 +113,7 @@ class ProductoDetailScreen extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // ── Stock por talla ──────────────────────────────────────────
-            _Label('STOCK POR TALLA'),
+            const _Label('STOCK POR TALLA'),
             const SizedBox(height: 12),
             ...variantes.map((v) => _TallaStockRow(variante: v, ref: ref)),
 
@@ -121,7 +121,7 @@ class ProductoDetailScreen extends ConsumerWidget {
 
             // ── Precios (CEO / Producción) ─────────────────────────────
             if (p.costo != null || p.precioVenta != null) ...[
-              _Label('PRECIOS'),
+              const _Label('PRECIOS'),
               const SizedBox(height: 12),
               Row(
                 children: [

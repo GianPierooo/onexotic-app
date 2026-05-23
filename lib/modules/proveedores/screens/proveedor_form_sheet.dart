@@ -139,7 +139,7 @@ class _ProveedorFormSheetState extends ConsumerState<ProveedorFormSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                _FieldLabel('Nombre*'),
+                const _FieldLabel('Nombre*'),
                 _AppFormField(
                   controller: _nombreCtrl,
                   hint: 'Ej: Textiles San Miguel',
@@ -147,19 +147,19 @@ class _ProveedorFormSheetState extends ConsumerState<ProveedorFormSheet> {
                       (v == null || v.trim().isEmpty) ? 'Requerido' : null,
                 ),
                 const SizedBox(height: 16),
-                _FieldLabel('Tipo'),
+                const _FieldLabel('Tipo'),
                 _TipoSelector(
                   value: _tipo,
                   onChanged: (v) => setState(() => _tipo = v),
                 ),
                 const SizedBox(height: 16),
-                _FieldLabel('Contacto'),
+                const _FieldLabel('Contacto'),
                 _AppFormField(
                   controller: _contactoCtrl,
                   hint: 'Nombre de la persona de contacto',
                 ),
                 const SizedBox(height: 16),
-                _FieldLabel('Teléfono'),
+                const _FieldLabel('Teléfono'),
                 _AppFormField(
                   controller: _telefonoCtrl,
                   hint: '+51 999 999 999',
@@ -171,7 +171,7 @@ class _ProveedorFormSheetState extends ConsumerState<ProveedorFormSheet> {
                   onChanged: (v) => setState(() => _rating = v),
                 ),
                 const SizedBox(height: 16),
-                _FieldLabel('Notas'),
+                const _FieldLabel('Notas'),
                 _AppFormField(
                   controller: _notasCtrl,
                   hint: 'Observaciones, condiciones de pago, etc.',
@@ -314,11 +314,11 @@ class _AppFormField extends StatelessWidget {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.error),
+          borderSide: const BorderSide(color: AppColors.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.error),
+          borderSide: const BorderSide(color: AppColors.error),
         ),
         errorStyle: GoogleFonts.inter(fontSize: 11, color: AppColors.error),
       ),

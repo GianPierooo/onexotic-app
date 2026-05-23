@@ -168,7 +168,7 @@ class _NuevoEventoSheetState extends ConsumerState<NuevoEventoSheet> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       padding: EdgeInsets.fromLTRB(20, 16, 20, 24 + bottomPad),
       child: SingleChildScrollView(

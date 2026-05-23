@@ -166,7 +166,7 @@ class _CrearProductoDesdeDisenioSheetState
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       padding: EdgeInsets.fromLTRB(20, 20, 20, 24 + bottomPad),
       child: SingleChildScrollView(
@@ -194,7 +194,7 @@ class _CrearProductoDesdeDisenioSheetState
 
             // Drop asociado (info, no editable)
             if (widget.disenio.dropNombre != null) ...[
-              _Label('DROP'),
+              const _Label('DROP'),
               const SizedBox(height: 6),
               Container(
                 padding:
@@ -212,13 +212,13 @@ class _CrearProductoDesdeDisenioSheetState
             ],
 
             // Nombre
-            _Label('NOMBRE *'),
+            const _Label('NOMBRE *'),
             const SizedBox(height: 6),
             _Input(controller: _nombreCtrl, hint: 'Nombre del producto'),
             const SizedBox(height: 16),
 
             // Tipo
-            _Label('TIPO *'),
+            const _Label('TIPO *'),
             const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -262,7 +262,7 @@ class _CrearProductoDesdeDisenioSheetState
             const SizedBox(height: 16),
 
             // Color
-            _Label('COLOR *'),
+            const _Label('COLOR *'),
             const SizedBox(height: 6),
             _Input(
                 controller: _colorCtrl,
@@ -270,7 +270,7 @@ class _CrearProductoDesdeDisenioSheetState
             const SizedBox(height: 16),
 
             // Tallas y stock
-            _Label('TALLAS Y STOCK'),
+            const _Label('TALLAS Y STOCK'),
             const SizedBox(height: 4),
             Text('Llena solo las tallas que vas a producir',
                 style: GoogleFonts.inter(
@@ -280,7 +280,7 @@ class _CrearProductoDesdeDisenioSheetState
             const SizedBox(height: 16),
 
             // Stock mínimo
-            _Label('STOCK MÍNIMO POR TALLA'),
+            const _Label('STOCK MÍNIMO POR TALLA'),
             const SizedBox(height: 6),
             SizedBox(
               width: 100,
@@ -297,7 +297,7 @@ class _CrearProductoDesdeDisenioSheetState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Label('COSTO UNITARIO *'),
+                    const _Label('COSTO UNITARIO *'),
                     const SizedBox(height: 6),
                     _Input(
                         controller: _costoCtrl,
@@ -312,7 +312,7 @@ class _CrearProductoDesdeDisenioSheetState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Label('PRECIO VENTA *'),
+                    const _Label('PRECIO VENTA *'),
                     const SizedBox(height: 6),
                     _Input(
                         controller: _precioCtrl,

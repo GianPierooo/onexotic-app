@@ -101,7 +101,7 @@ class PerfilMiembroScreen extends ConsumerWidget {
             const SizedBox(height: 28),
 
             // ── Info de contacto ──────────────────────────────────────
-            _Section('INFORMACIÓN'),
+            const _Section('INFORMACIÓN'),
             const SizedBox(height: 12),
             _InfoRow(icon: Icons.email_outlined, label: u.email),
             const SizedBox(height: 8),
@@ -118,7 +118,7 @@ class PerfilMiembroScreen extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // ── Asistencia ────────────────────────────────────────────
-            _Section('ASISTENCIA ESTE MES'),
+            const _Section('ASISTENCIA ESTE MES'),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(16),

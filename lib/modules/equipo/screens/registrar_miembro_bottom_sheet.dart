@@ -166,7 +166,7 @@ class _RegistrarMiembroBottomSheetState
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.all(Radius.circular(20)),
+        borderRadius: const BorderRadius.all(Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -270,7 +270,7 @@ class _RegistrarMiembroBottomSheetState
                     const SizedBox(height: 14),
 
                     // -- Rol ---------------------------------------
-                    _SheetLabel('ROL *'),
+                    const _SheetLabel('ROL *'),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -309,7 +309,7 @@ class _RegistrarMiembroBottomSheetState
                     const SizedBox(height: 14),
 
                     // -- Horario -----------------------------------
-                    _SheetLabel('HORARIO *'),
+                    const _SheetLabel('HORARIO *'),
                     const SizedBox(height: 8),
                     Row(
                       children: [

@@ -1,5 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -93,7 +92,7 @@ class _BriefFormState extends ConsumerState<BriefForm> {
         const SizedBox(height: 20),
 
         // 1. Título
-        _Label('TÍTULO DEL DISEÑO *'),
+        const _Label('TÍTULO DEL DISEÑO *'),
         const SizedBox(height: 8),
         _TextField(
           controller: _ctrl.tituloCtrl,
@@ -103,7 +102,7 @@ class _BriefFormState extends ConsumerState<BriefForm> {
         const SizedBox(height: 20),
 
         // 2. Drop asociado (con opción "Prenda suelta")
-        _Label('DROP ASOCIADO *'),
+        const _Label('DROP ASOCIADO *'),
         const SizedBox(height: 8),
         dropsAsync.when(
           loading: () => const SizedBox(
@@ -182,7 +181,7 @@ class _BriefFormState extends ConsumerState<BriefForm> {
         const SizedBox(height: 20),
 
         // 3. Descripción
-        _Label('DESCRIPCIÓN *'),
+        const _Label('DESCRIPCIÓN *'),
         const SizedBox(height: 8),
         _TextField(
           controller: _ctrl.descripcionCtrl,
@@ -194,7 +193,7 @@ class _BriefFormState extends ConsumerState<BriefForm> {
         const SizedBox(height: 20),
 
         // 4. Colores de referencia · sistema mixto
-        _Label('COLORES DE REFERENCIA (máx $_maxColores)'),
+        const _Label('COLORES DE REFERENCIA (máx $_maxColores)'),
         const SizedBox(height: 8),
         ColorPaletteSelector(
           seleccionados: _ctrl.colores,
@@ -214,7 +213,7 @@ class _BriefFormState extends ConsumerState<BriefForm> {
         const SizedBox(height: 20),
 
         // 5. Imágenes de referencia
-        _Label('IMÁGENES DE REFERENCIA (opcional, máx $_maxImagenes)'),
+        const _Label('IMÁGENES DE REFERENCIA (opcional, máx $_maxImagenes)'),
         const SizedBox(height: 4),
         Text(
           '${_ctrl.imagenes.length}/$_maxImagenes',
@@ -232,7 +231,7 @@ class _BriefFormState extends ConsumerState<BriefForm> {
         const SizedBox(height: 20),
 
         // 6. Tipografía sugerida
-        _Label('TIPOGRAFÍA SUGERIDA'),
+        const _Label('TIPOGRAFÍA SUGERIDA'),
         const SizedBox(height: 8),
         _TextField(
           controller: _ctrl.tipografiaCtrl,
@@ -242,7 +241,7 @@ class _BriefFormState extends ConsumerState<BriefForm> {
         const SizedBox(height: 20),
 
         // 7. Fecha límite de entrega
-        _Label('¿CUÁNDO NECESITAS EL DISEÑO TERMINADO? *'),
+        const _Label('¿CUÁNDO NECESITAS EL DISEÑO TERMINADO? *'),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: () => _pickDate(context),
@@ -284,7 +283,7 @@ class _BriefFormState extends ConsumerState<BriefForm> {
         const SizedBox(height: 20),
 
         // 8. Notas adicionales
-        _Label('NOTAS ADICIONALES'),
+        const _Label('NOTAS ADICIONALES'),
         const SizedBox(height: 8),
         _TextField(
           controller: _ctrl.notasCtrl,

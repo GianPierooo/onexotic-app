@@ -1,5 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -224,7 +223,7 @@ class _AgregarProductoBottomSheetState
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -275,7 +274,7 @@ class _AgregarProductoBottomSheetState
                     const SizedBox(height: 20),
 
                     // Nombre
-                    _FieldLabel('Nombre del producto *'),
+                    const _FieldLabel('Nombre del producto *'),
                     const SizedBox(height: 6),
                     _StyledTextField(
                       controller: _nombreCtrl,
@@ -293,7 +292,7 @@ class _AgregarProductoBottomSheetState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _FieldLabel('Tipo *'),
+                              const _FieldLabel('Tipo *'),
                               const SizedBox(height: 6),
                               _StyledDropdown<String>(
                                 value: _selectedTipo,
@@ -317,7 +316,7 @@ class _AgregarProductoBottomSheetState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _FieldLabel('Drop (opcional)'),
+                              const _FieldLabel('Drop (opcional)'),
                               const SizedBox(height: 6),
                               dropsAsync.when(
                                 loading: () => const SizedBox(
@@ -329,10 +328,10 @@ class _AgregarProductoBottomSheetState
                                     ),
                                   ),
                                 ),
-                                error: (_, __) => _StyledDropdown<String>(
+                                error: (_, __) => const _StyledDropdown<String>(
                                   value: null,
                                   hint: 'Sin Drop',
-                                  items: const [],
+                                  items: [],
                                   onChanged: null,
                                 ),
                                 data: (drops) => _StyledDropdown<String>(
@@ -366,7 +365,7 @@ class _AgregarProductoBottomSheetState
                     const SizedBox(height: 14),
 
                     // Color
-                    _FieldLabel('Color *'),
+                    const _FieldLabel('Color *'),
                     const SizedBox(height: 6),
                     _StyledTextField(
                       controller: _colorCtrl,
@@ -377,7 +376,7 @@ class _AgregarProductoBottomSheetState
                     const SizedBox(height: 14),
 
                     // ── Tabla de tallas con stock ──────────────────────────
-                    _FieldLabel('TALLAS Y STOCK *'),
+                    const _FieldLabel('TALLAS Y STOCK *'),
                     const SizedBox(height: 8),
                     _TallaStockTable(
                       tallas: _tallas,
@@ -392,7 +391,7 @@ class _AgregarProductoBottomSheetState
                     const SizedBox(height: 14),
 
                     // Stock mínimo
-                    _FieldLabel('Stock mínimo por talla *'),
+                    const _FieldLabel('Stock mínimo por talla *'),
                     const SizedBox(height: 6),
                     _StyledTextField(
                       controller: _stockMinimoCtrl,
@@ -412,7 +411,7 @@ class _AgregarProductoBottomSheetState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _FieldLabel('Costo unitario *'),
+                              const _FieldLabel('Costo unitario *'),
                               const SizedBox(height: 6),
                               _StyledTextField(
                                 controller: _costoCtrl,
@@ -433,7 +432,7 @@ class _AgregarProductoBottomSheetState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _FieldLabel('Precio de venta *'),
+                              const _FieldLabel('Precio de venta *'),
                               const SizedBox(height: 6),
                               _StyledTextField(
                                 controller: _precioVentaCtrl,
@@ -819,7 +818,7 @@ class _StyledDropdown<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<T>(
-      value: value,
+      initialValue: value,
       validator: validator,
       onChanged: onChanged,
       items: items,

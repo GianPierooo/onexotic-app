@@ -8,6 +8,7 @@ class InputChat extends StatefulWidget {
   final FocusNode focusNode;
   final bool isLoading;
   final void Function(String) onSend;
+  final String? hint;
 
   const InputChat({
     super.key,
@@ -15,6 +16,7 @@ class InputChat extends StatefulWidget {
     required this.focusNode,
     required this.isLoading,
     required this.onSend,
+    this.hint,
   });
 
   @override
@@ -98,7 +100,7 @@ class _InputChatState extends State<InputChat> {
                   height: 1.45,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Pregunta algo...',
+                  hintText: widget.hint ?? 'Pregunta algo...',
                   hintStyle: GoogleFonts.inter(
                     color: AppColors.textPlaceholder,
                     fontSize: 14,

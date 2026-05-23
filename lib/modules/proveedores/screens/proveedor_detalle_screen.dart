@@ -87,7 +87,7 @@ class ProveedorDetalleScreen extends ConsumerWidget {
           ),
           IconButton(
             onPressed: () => _eliminar(context, ref),
-            icon: Icon(Icons.delete_outline_rounded,
+            icon: const Icon(Icons.delete_outline_rounded,
                 color: AppColors.error, size: 20),
           ),
           const SizedBox(width: 8),
@@ -100,7 +100,7 @@ class ProveedorDetalleScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           _InfoBlock(proveedor: proveedor),
           const SizedBox(height: 24),
-          _SectionLabel('PRODUCTOS ASOCIADOS'),
+          const _SectionLabel('PRODUCTOS ASOCIADOS'),
           const SizedBox(height: 10),
           productosAsync.when(
             loading: () => const Padding(
@@ -110,9 +110,9 @@ class ProveedorDetalleScreen extends ConsumerWidget {
                     strokeWidth: 2, color: AppColors.accent),
               ),
             ),
-            error: (e, _) => _EmptyBlock('Error cargando productos'),
+            error: (e, _) => const _EmptyBlock('Error cargando productos'),
             data: (productos) => productos.isEmpty
-                ? _EmptyBlock(
+                ? const _EmptyBlock(
                     'Aún no hay productos asociados a este proveedor')
                 : Column(
                     children: productos

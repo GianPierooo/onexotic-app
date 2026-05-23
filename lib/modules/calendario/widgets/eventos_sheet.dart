@@ -82,7 +82,7 @@ class EventosSheet extends ConsumerWidget {
       builder: (_, scrollController) => Container(
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           border: Border(
             top: BorderSide(color: AppColors.border, width: 0.5),
           ),
