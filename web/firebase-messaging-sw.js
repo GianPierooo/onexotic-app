@@ -1,19 +1,17 @@
 // Service Worker para Firebase Cloud Messaging (background messages en web)
 // Este archivo DEBE estar en la raíz del dominio (web/).
-//
-// TODO: Reemplaza los valores de firebaseConfig con los de tu proyecto:
-//   Firebase Console → Configuración del proyecto → Tus apps → App web
+// Valores sincronizados con lib/firebase_options.dart → web.
 
 importScripts('https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.14.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey:            'REEMPLAZA_WEB_API_KEY',
-  authDomain:        'REEMPLAZA_PROJECT_ID.firebaseapp.com',
-  projectId:         'REEMPLAZA_PROJECT_ID',
-  storageBucket:     'REEMPLAZA_PROJECT_ID.appspot.com',
-  messagingSenderId: 'REEMPLAZA_SENDER_ID',
-  appId:             'REEMPLAZA_WEB_APP_ID',
+  apiKey:            'AIzaSyB8tp6iI8g5cUHkZCW8xo9fTZX6qNuUefs',
+  authDomain:        'onexotic-49e29.firebaseapp.com',
+  projectId:         'onexotic-49e29',
+  storageBucket:     'onexotic-49e29.firebasestorage.app',
+  messagingSenderId: '982678191452',
+  appId:             '1:982678191452:web:694a5b7b79c5c90fb5d599',
 });
 
 const messaging = firebase.messaging();
