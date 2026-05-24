@@ -1,8 +1,10 @@
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/fcm/push_helper.dart';
 import '../models/tarea.dart';
 
 // ─── Usuarios activos para asignar tareas ─────────────────────────────────────
@@ -231,6 +233,19 @@ class CrearTareaNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       await Supabase.instance.client.from('tareas').insert(payload);
       _ref.invalidate(tareasProvider);
+
+      // Notificación in-app + push al asignado (fire-and-forget).
+      // No filtramos auto-asignación: si te asignas una tarea a ti mismo,
+      // igual recibes el push — útil para testing y como confirmación.
+      if (asign != null && asign.isNotEmpty) {
+        unawaited(pushNotif(
+          userId: asign,
+          titulo: 'Nueva tarea asignada',
+          mensaje: tituloLimpio,
+          tipo: 'tarea',
+        ));
+      }
+
       state = const AsyncValue.data(null);
       return const CrearTareaResultado.ok();
     } on PostgrestException catch (e) {
