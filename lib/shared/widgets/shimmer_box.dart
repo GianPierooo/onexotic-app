@@ -89,7 +89,10 @@ class _MetricSkeleton extends StatelessWidget {
       highlightColor: highlight,
       period: const Duration(milliseconds: 1400),
       child: Container(
-        height: 116,
+        // Suma vertical del contenido: 34 + 14 + 26 + 8 + 12 = 94, más
+        // padding all 16 → 32. Necesita ≥126 para no overflowear (el
+        // anterior 116 cortaba ~11px en el bottom).
+        height: 128,
         decoration: BoxDecoration(
           color: base,
           borderRadius: BorderRadius.circular(16),
