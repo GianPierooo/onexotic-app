@@ -190,7 +190,7 @@ class _InputChatState extends State<InputChat> {
         backgroundColor: AppColors.surface2,
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 88),
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 9),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: AppColors.border),

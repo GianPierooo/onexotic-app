@@ -60,9 +60,9 @@ class SpeechService {
       if (kDebugMode) print('[voice] init exception: $e');
       _initialized = true;
       _available = false;
-      onError(const VoiceError(
+      onError(VoiceError(
         VoiceErrorTipo.noDisponible,
-        'El reconocimiento de voz no está disponible en este dispositivo.',
+        'No se pudo iniciar el reconocimiento de voz. Probablemente el navegador no lo soporta o estás abriendo la app desde un webview. (detalle: $e)',
       ));
       return false;
     }
@@ -145,16 +145,24 @@ class SpeechService {
         'El micrófono está ocupado por otra app. Ciérrala y vuelve a intentar.',
       );
     }
-    if (s.contains('no_match') || s.contains('no match') || s.contains('no_speech')) {
+    if (s.contains('no_match') || s.contains('no match') || s.contains('no_speech') || s.contains('no-speech')) {
       return const VoiceError(
         VoiceErrorTipo.noEntendido,
         'No te entendí. Intenta hablar más cerca del micrófono.',
       );
     }
-    if (s.contains('not_available') || s.contains('not available')) {
-      return const VoiceError(
+    // 'not supported' / 'speech_not_supported' / 'not_available' — todos
+    // significan que el navegador no tiene Web Speech API o el dispositivo
+    // no expone reconocimiento nativo. Incluimos el detalle crudo para
+    // distinguir webview de navegador real al diagnosticar.
+    if (s.contains('not supported') ||
+        s.contains('not_supported') ||
+        s.contains('speech_not_supported') ||
+        s.contains('not_available') ||
+        s.contains('not available')) {
+      return VoiceError(
         VoiceErrorTipo.noDisponible,
-        'El reconocimiento de voz no está disponible en este dispositivo.',
+        'Este navegador no soporta dictado por voz. Abre la app desde Chrome (Android), Safari (iOS 14.5+) o Edge — NO desde el navegador interno de Instagram, WhatsApp u otra app. (detalle: $raw)',
       );
     }
     return VoiceError(VoiceErrorTipo.desconocido, raw.isEmpty ? 'Error desconocido' : raw);
