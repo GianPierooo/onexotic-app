@@ -4,6 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>OnExotic usa el micrófono para dictar mensajes al asistente de IA.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>OnExotic transcribe tu voz a texto para que puedas dictar tareas al asistente sin escribir.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

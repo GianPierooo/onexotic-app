@@ -1,10 +1,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/voice/speech_service.dart';
 
 class InputChat extends StatefulWidget {
   final TextEditingController controller;
@@ -18,6 +20,10 @@ class InputChat extends StatefulWidget {
   /// Cuando es null, el botón no se muestra (modo chat informativo).
   final void Function(String texto, List<PickedImage> imagenes)? onSendConImagenes;
 
+  /// Si es true, muestra el botón de dictado por voz junto a adjuntar.
+  /// Solo se usa en el modo Asistente — el modo Chat queda intacto.
+  final bool enableVoice;
+
   /// Si es true, deshabilita acciones (subiendo imágenes en background).
   final bool isSubiendo;
 
@@ -29,6 +35,7 @@ class InputChat extends StatefulWidget {
     required this.onSend,
     this.hint,
     this.onSendConImagenes,
+    this.enableVoice = false,
     this.isSubiendo = false,
   });
 
@@ -41,6 +48,13 @@ class _InputChatState extends State<InputChat> {
   bool _focused = false;
   final List<PickedImage> _adjuntas = [];
 
+  // ─── Estado del dictado por voz ────────────────────────────────────────────
+  // _textoPrevio: lo que había en el campo antes de empezar a dictar. Se usa
+  // para preservar lo que el CEO ya había tecleado y solo concatenar lo nuevo.
+  final SpeechService _voice = SpeechService();
+  bool _escuchando = false;
+  String _textoPrevio = '';
+
   @override
   void initState() {
     super.initState();
@@ -52,6 +66,11 @@ class _InputChatState extends State<InputChat> {
   void dispose() {
     widget.controller.removeListener(_updateHasText);
     widget.focusNode.removeListener(_updateFocus);
+    // No await: dispose es sync. cancel() es defensivo por si el usuario
+    // cerró la pantalla mientras dictaba.
+    if (_escuchando) {
+      _voice.cancel();
+    }
     super.dispose();
   }
 
@@ -104,9 +123,107 @@ class _InputChatState extends State<InputChat> {
     setState(() => _adjuntas.removeAt(i));
   }
 
+  // ─── Voz ─────────────────────────────────────────────────────────────────
+  Future<void> _toggleVoz() async {
+    if (_escuchando) {
+      await _voice.stop();
+      // El status callback nos pondrá _escuchando=false; igual lo forzamos
+      // por si acaso (idempotente).
+      if (mounted) setState(() => _escuchando = false);
+      return;
+    }
+    HapticFeedback.selectionClick();
+    final ok = await _voice.ensureInitialized(
+      onStatus: (s) {
+        // Estados de speech_to_text: 'listening', 'notListening', 'done'.
+        // Solo nos importa salir de modo escuchando.
+        if (!mounted) return;
+        if (s == 'notListening' || s == 'done') {
+          if (_escuchando) setState(() => _escuchando = false);
+        }
+      },
+      onError: (e) {
+        if (!mounted) return;
+        setState(() => _escuchando = false);
+        _mostrarErrorVoz(e);
+      },
+    );
+    if (!ok) return;
+    _textoPrevio = widget.controller.text;
+    final started = await _voice.listen(
+      onPartial: (parcial) {
+        if (!mounted) return;
+        widget.controller.value = TextEditingValue(
+          text: _componerTexto(parcial),
+          selection: TextSelection.collapsed(
+            offset: _componerTexto(parcial).length,
+          ),
+        );
+      },
+      onFinal: (texto) {
+        if (!mounted) return;
+        final compuesto = _componerTexto(texto);
+        widget.controller.value = TextEditingValue(
+          text: compuesto,
+          selection: TextSelection.collapsed(offset: compuesto.length),
+        );
+        setState(() => _escuchando = false);
+      },
+    );
+    if (started && mounted) {
+      setState(() => _escuchando = true);
+    }
+  }
+
+  String _componerTexto(String nuevo) {
+    if (_textoPrevio.isEmpty) return nuevo;
+    final sep = _textoPrevio.endsWith(' ') ? '' : ' ';
+    return '$_textoPrevio$sep$nuevo';
+  }
+
+  void _mostrarErrorVoz(VoiceError e) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.surface2,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 88),
+        duration: const Duration(seconds: 4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: AppColors.border),
+        ),
+        content: Row(
+          children: [
+            Icon(
+              e.tipo == VoiceErrorTipo.noEntendido
+                  ? Icons.hearing_disabled_rounded
+                  : Icons.mic_off_rounded,
+              color: AppColors.error,
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                e.mensaje,
+                style: GoogleFonts.inter(
+                  color: AppColors.textPrimary,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   bool get _canSend =>
       !widget.isLoading &&
       !widget.isSubiendo &&
+      !_escuchando &&
       (_hasText || _adjuntas.isNotEmpty);
 
   void _enviar() {
@@ -141,11 +258,16 @@ class _InputChatState extends State<InputChat> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (_adjuntas.isNotEmpty) _previewAdjuntas(),
+          if (_escuchando) _bannerEscuchando(),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (puedeAdjuntar) ...[
                 _botonAdjuntar(),
+                const SizedBox(width: 8),
+              ],
+              if (widget.enableVoice) ...[
+                _botonVoz(),
                 const SizedBox(width: 8),
               ],
               Expanded(
@@ -177,9 +299,13 @@ class _InputChatState extends State<InputChat> {
                     decoration: InputDecoration(
                       hintText: widget.isSubiendo
                           ? 'Subiendo imágenes...'
-                          : (widget.hint ?? 'Pregunta algo...'),
+                          : _escuchando
+                              ? 'Escuchando…'
+                              : (widget.hint ?? 'Pregunta algo...'),
                       hintStyle: GoogleFonts.inter(
-                        color: AppColors.textPlaceholder,
+                        color: _escuchando
+                            ? AppColors.accent
+                            : AppColors.textPlaceholder,
                         fontSize: 14,
                       ),
                       border: InputBorder.none,
@@ -201,7 +327,7 @@ class _InputChatState extends State<InputChat> {
   }
 
   Widget _botonAdjuntar() {
-    final disabled = widget.isLoading || widget.isSubiendo;
+    final disabled = widget.isLoading || widget.isSubiendo || _escuchando;
     return GestureDetector(
       onTap: disabled ? null : _adjuntarImagenes,
       child: Container(
@@ -218,6 +344,96 @@ class _InputChatState extends State<InputChat> {
           color:
               disabled ? AppColors.textPlaceholder : AppColors.textSecondary,
         ),
+      ),
+    );
+  }
+
+  Widget _botonVoz() {
+    final disabled = widget.isLoading || widget.isSubiendo;
+    final activo = _escuchando;
+    final boton = GestureDetector(
+      onTap: disabled ? null : _toggleVoz,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: activo
+              ? AppColors.accent.withValues(alpha: 0.18)
+              : AppColors.surface2,
+          border: Border.all(
+            color: activo ? AppColors.accent : AppColors.border,
+            width: activo ? 1.2 : 0.5,
+          ),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(
+          activo ? Icons.stop_rounded : Icons.mic_none_rounded,
+          size: 20,
+          color: disabled
+              ? AppColors.textPlaceholder
+              : activo
+                  ? AppColors.accent
+                  : AppColors.textSecondary,
+        ),
+      ),
+    );
+    if (!activo) return boton;
+    // Pulsación suave del fondo cuando está escuchando — sin partículas ni
+    // efectos pesados para no provocar CONTEXT_LOST_WEBGL en flutter web.
+    return boton
+        .animate(onPlay: (c) => c.repeat(reverse: true))
+        .fadeIn(duration: 250.ms)
+        .scaleXY(begin: 1, end: 1.06, duration: 700.ms, curve: Curves.easeInOut);
+  }
+
+  Widget _bannerEscuchando() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.10),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppColors.accent,
+              shape: BoxShape.circle,
+            ),
+          )
+              .animate(onPlay: (c) => c.repeat(reverse: true))
+              .fadeIn(duration: 600.ms)
+              .then()
+              .fade(begin: 1, end: 0.25, duration: 600.ms),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Escuchando… habla con naturalidad',
+              style: GoogleFonts.inter(
+                color: AppColors.textPrimary,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: _toggleVoz,
+            child: Text(
+              'Detener',
+              style: GoogleFonts.inter(
+                color: AppColors.accent,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

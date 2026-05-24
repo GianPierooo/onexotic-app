@@ -248,9 +248,11 @@ class _AiScreenState extends ConsumerState<AiScreen> {
                   isLoading: isTyping,
                   isSubiendo: isSubiendo,
                   onSend: _enviar,
-                  // Solo en modo Asistente se permite adjuntar imágenes.
+                  // Solo en modo Asistente se permite adjuntar imágenes
+                  // y dictar por voz — el modo Chat queda intacto.
                   onSendConImagenes:
                       modo == AiModo.asistente ? _enviarConImagenes : null,
+                  enableVoice: modo == AiModo.asistente,
                   hint: modo == AiModo.asistente
                       ? 'Dile qué quieres crear…'
                       : null,
